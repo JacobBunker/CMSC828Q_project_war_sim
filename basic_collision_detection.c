@@ -9,8 +9,6 @@
 
 
 #define NUM_RIGID_BODIES 2
-#define TOLERANCE 0.00001
-// the tolerance should be something positive close to zero (ex. 0.00001)
 
 //see https://www.toptal.com/game/video-game-physics-part-i-an-introduction-to-rigid-body-dynamics
 //for resources on this system
@@ -19,18 +17,6 @@ typedef struct {
 	float x;
 	float y;
 } Vector2;
-
-struct Node {
-	Vector2 data;
-	struct Node* next;
-};
-
-
-typedef struct {
-	Vector2 normal;
-	int index;
-	double distance;
-} Edge;
 
 typedef struct {
 	float width;
@@ -139,18 +125,6 @@ void ComputeForceAndTorque(RigidBody *rigidBody) {
     rigidBody->torque = r.x * f.y - r.y * f.x;
 }
 
-void FreeList(struct Node* head)
-{
-   	struct Node* tmp;
-
-   	while (head != NULL)
-   	{
-       	tmp = head;
-       	head = head->next;
-       	free(tmp);
-    }
-}
-
 
 Vector2 VectorSub(Vector2 a, Vector2 b) {
 	Vector2 c;
@@ -172,22 +146,6 @@ Vector2 VectorTripleProduct(Vector2 a, Vector2 b, Vector2 c) {
 	d.y = a.y * b.y * c.y;
 	return d;
 }
-
-double VectorNorm(Vector2 a) {
-	return sqrt((a.x*a.x) + (a.y*a.y));
-}
-
-Vector2 VectorDivideConstant(Vector2 a, double b) {
-	Vector2 c;
-	c.x = a.x / b;
-	c.y = a.y / b;
-	return c;
-}
-
-Vector2 VectorNormalize(Vector2 a){
-	return VectorDivideConstant(a, VectorNorm(a));
-}
-
 
 Vector2 AffineTransform(Vector2 vertex, Vector2 position, float angle) {
 	double cosA = cos((double) (angle*M_PI/180.0));
@@ -338,14 +296,14 @@ double DotProduct(Vector2 a, Vector2 b) {
 }
 
 
-int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
+int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
 	Vector2 a,b,c,ao,ab,ac,abPerp,acPerp;
 	int t, last, b_i, c_i;
 
 	Vector2 d;
 	d.x = 0.0;
 	d.y = 1.0; //arbitrary init currently
-	//Vector2 simplex[3];
+	Vector2 simplex[3];
 	int simplex_record[3];
 	int counter = 1;
 	simplex_record[0] = 0;
@@ -360,7 +318,7 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 		counter++;
 		last = GetLast(simplex_record);
 		a = simplex[last];
-		if((DotProduct(a, d) <= 0) && (GetSize(simplex_record) == 3)) {
+		if(DotProduct(a, d) <= 0) {
 			//if the point added last was not past the origin in the direction of d
 			//then the Minkowski Sum cannot possibly contain the origin since
 			//the last point added is on the edge of the Minkowski Difference
@@ -416,125 +374,6 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 	return 0;
 }
 
-
-Edge FindClosestEdge(struct Node *simplex_head) {
-	Edge closest;
-	closest.distance = DBL_MAX;
-	Vector2 a, b, e, oa, n;
-	double d;
-
-	struct Node* current = simplex_head;
-	struct Node* next;
-
-	int last_switch = 0;
-	int i = 1;
-
-	while(last_switch == 0) {
-		next = current->next;
-		if(next == NULL) { //do wrap around
-			next = simplex_head;
-			last_switch = 1;
-			i = 0;
-		}
-		//get current point and the next one
-		a = current->data;
-		b = next->data;
-		//create the edge vector
-		e = VectorSub(b, a);
-		oa = a; //a - origin
-		//get the vector from the edge towards the origin
-		n = VectorTripleProduct(e, oa, e);
-		//normalize the vector
-		n = VectorNormalize(n);
-		//calculate distance from origin to the edge
-		d = DotProduct(n, a);
-		//check for min distance
-		if (d < closest.distance) {
-			closest.distance = d;
-			closest.normal = n;
-			closest.index = i;
-		}
-		current = next;
-		i++;
-	}
-
-	return closest;
-}
-
-
-
-Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
-	struct Node* head = NULL;
-	struct Node* second = NULL;
-	struct Node* third = NULL;
-
-	Edge e;
-	Vector2 p;
-	double d;
-	int i;
-
-	Vector2 simplex[3];
-	int gjk_result = GJK(rigidBodyOne, rigidBodyTwo, simplex);
-	printf("GJK complete with result %d\n", gjk_result);
-	if(gjk_result == 0) {
-		//no collision, so report negative distance
-		e.distance = -1.0;
-		return e;
-	}
-
-	head = (struct Node *)malloc(sizeof(struct Node));
-	second = (struct Node *)malloc(sizeof(struct Node));
-	third = (struct Node *)malloc(sizeof(struct Node));
-	head->data = simplex[0];
-	head->next = second;
-	second->data = simplex[1];
-	second->next = third;
-	third->data = simplex[2];
-	third->next = NULL;
-
-	while(1) {
-		//obtain the edge closest to the origin on the Minkowski Difference
-		e = FindClosestEdge(head);
-		p = Support(rigidBodyOne, rigidBodyTwo, e.normal);
-		//check distance from origin to the edge against
-		//distance p along e.normal
-		d = DotProduct(p, e.normal);
-		if(d - e.distance < TOLERANCE) {
-			//if the difference is less than the tolerance then we can assume
-			//that we cannot expand the simplex any further, and have our solution
-			e.distance = d; //re-using struct for convenience
-			FreeList(head);
-			return e;
-		} else {
-			printf("over tolerance with value: %.6f\n", (d - e.distance));
-			//have not reached the edge of the Minkowski Difference
-			// continue expanding by adding the new point to the simlpex
-			//in between the points that made the closest edge
-			struct Node* current = NULL;
-			struct Node* previous = NULL;
-			struct Node* temp = (struct Node *)malloc(sizeof(struct Node));
-
-			current = head;
-			i = 0;
-			while(i < e.index) {
-				previous = current;
-				current = current->next;
-				i++;
-			}
-			if(i == 0) { //betwen the last point and the first
-				temp->data = head->data;
-				temp->next = head->next;
-				head->data = p;
-				head->next = temp;
-			} else { //between the current and previous
-				temp->data = p;
-				temp->next = current;
-				previous->next = temp;
-			}
-		}
-	}
-}
-
 void RunRigidBodySimulation() {
     float totalSimulationTime = 10; // The simulation will run for 10 seconds.
     float currentTime = 0; // This accumulates the time that has passed.
@@ -555,8 +394,9 @@ void RunRigidBodySimulation() {
             //brute force detect collisions (very inefficient- should change this!)
             for (int ii = 0; ii < NUM_RIGID_BODIES; ++ii) {
             	if(i != ii) { //can't collide with self
-            		Edge e = EPA(rigidBody, &rigidBodies[ii]);
-            		printf("EPA result between %d and %d: %0.4f\n", i, ii, e.distance);
+            		if(GJK(rigidBody, &rigidBodies[ii])) {
+            			printf("collision detected between %d and %d\n", i, ii);
+            		}
             	}
 			}
 
