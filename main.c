@@ -66,6 +66,10 @@ void PrintRigidBodies() {
     for (int i = 0; i < NUM_RIGID_BODIES; ++i) {
         RigidBody *rigidBody = &rigidBodies[i];
         printf("body[%i] p = (%.2f, %.2f), a = %.2f\n", i, rigidBody->position.x, rigidBody->position.y, rigidBody->angle);
+		FILE * fp;
+		fp = fopen ("/home/jack/828/war_sim/positions.txt","a");
+ 		fprintf (fp, "%i %.2f %.2f %.2f\n", i, rigidBody->position.x, rigidBody->position.y, rigidBody->angle);  
+  	 	fclose (fp);
     }
 }
 
@@ -99,6 +103,13 @@ void InitializeRigidBodies() {
         rigidBody->vertex_number = 4;
         CalculateBoxInertia(&shape);
         rigidBody->shape = shape;
+		FILE * fp;
+		fp = fopen ("/home/jack/828/war_sim/positions.txt","a");
+ 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[0].x, shape.vertices[0].y);  
+ 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[1].x, shape.vertices[1].y);  
+ 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[2].x, shape.vertices[2].y);  
+ 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[3].x, shape.vertices[3].y);  
+  	 	fclose (fp);
     }
 
     //create the ground
