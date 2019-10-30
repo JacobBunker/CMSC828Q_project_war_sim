@@ -8,7 +8,7 @@
 #include <limits.h>
 
 
-#define NUM_RIGID_BODIES 2
+#define NUM_RIGID_BODIES 5
 #define TOLERANCE 0.00001
 // the tolerance should be something positive close to zero (ex. 0.00001)
 
@@ -24,7 +24,6 @@ struct Node {
 	Vector2 data;
 	struct Node* next;
 };
-
 
 typedef struct {
 	Vector2 normal;
@@ -67,15 +66,15 @@ RigidBody rigidBodies[NUM_RIGID_BODIES];
 void InitializeRigidBodies() {
     for (int i = 0; i < NUM_RIGID_BODIES - 1; ++i) {
         RigidBody *rigidBody = &rigidBodies[i];
-        rigidBody->position = (Vector2){arc4random_uniform(50), arc4random_uniform(50)};
+        rigidBody->position = (Vector2){-25.0, arc4random_uniform(500) - 250.0};
         rigidBody->angle = arc4random_uniform(360)/360.f * M_PI * 2;
         rigidBody->linearVelocity = (Vector2){0, 0};
         rigidBody->angularVelocity = 0;
         
         BoxShape shape;
         shape.mass = 10;
-        shape.width = 1 + arc4random_uniform(2);
-        shape.height = 1 + arc4random_uniform(2);
+        shape.width = 1;
+        shape.height = 1;
 
         //top right
         shape.vertices[0].x = shape.width/2.0;
@@ -94,17 +93,17 @@ void InitializeRigidBodies() {
         rigidBody->shape = shape;
     }
 
-    //create the ground
+    //create the goal zone
     RigidBody *rigidBody = &rigidBodies[NUM_RIGID_BODIES-1];
-    rigidBody->position = (Vector2){0.0, -25.0};
+    rigidBody->position = (Vector2){200.0, 0.0};
     rigidBody->angle = 0.0;
     rigidBody->linearVelocity = (Vector2){0, 0};
     rigidBody->angularVelocity = 0;
     
     BoxShape shape;
     shape.mass = 1000000;
-    shape.width = 1000;
-    shape.height = 50;
+    shape.width = 100;
+    shape.height = 10000;
 
     //top right
     shape.vertices[0].x = shape.width/2.0;
@@ -342,15 +341,11 @@ Vector2 Support(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 d) {
 	Vector2 zero;
 	zero.x = 0.0; zero.y = 0.0;
 
-	printf("Support Function input d: %.2f, %.2f\n", d.x, d.y);
 	Vector2 p1 = GetFarthestPointInDirection((rigidBodyOne->shape).vertices, rigidBodyOne->vertex_number, AffineTransform(d, zero, rigidBodyOne->angle));
-	printf("Support p1: %.2f, %.2f\n", p1.x, p1.y);
 	Vector2 p2 = GetFarthestPointInDirection((rigidBodyTwo->shape).vertices, rigidBodyTwo->vertex_number, AffineTransform(VectorNegate(d), zero, rigidBodyTwo->angle));
-	printf("Support p2: %.2f, %.2f\n", p2.x, p2.y);
 	//perform Minkowski Difference
 	Vector2 p3 = VectorSub(AffineTransform(p1, rigidBodyOne->position, rigidBodyOne->angle), AffineTransform(p2, rigidBodyTwo->position, rigidBodyTwo->angle));
 	//p3 is now a point in the Minkowski space ont he edge of the Minkowski Difference
-	printf("Support p3: %.2f, %.2f\n", p3.x, p3.y);
 	return p3;
 }
 
@@ -378,8 +373,6 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 		counter++;
 		last = GetLast(simplex_record);
 		a = simplex[last];
-		printf("last: %.2f, %.2f\n", a.x, a.y);
-		printf("proj: %f\n", DotProduct(a, d));
 		if((DotProduct(a, d) <= 0)) {
 			//if the point added last was not past the origin in the direction of d
 			//then the Minkowski Sum cannot possibly contain the origin since
@@ -388,7 +381,6 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 		} else {
 			//otherwise we need to determine if the origin is in the current simplex
 			ao = VectorNegate(a);
-			printf("ao: %.2f, %.2f\n", ao.x, ao.y);
 
 			if(GetSize(simplex_record) == 3) {
 				//triangle case
@@ -397,19 +389,12 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 				c_i = GetC(simplex_record, last);
 				b = simplex[b_i];
 				c = simplex[c_i];
-				printf("a: %.2f, %.2f\n", a.x, a.y);
-				printf("b: %.2f, %.2f\n", b.x, b.y);
-				printf("c: %.2f, %.2f\n", c.x, c.y);
 				//compute the edges
 				ab = VectorSub(b, a);
-				printf("ab: %.2f, %.2f\n", ab.x, ab.y);
 				ac = VectorSub(c, a);
-				printf("ac: %.2f, %.2f\n", ac.x, ac.y);
 				//compute the normals
 				abPerp = VectorTripleProduct(ac, ab, ab);
 				acPerp = VectorTripleProduct(ab, ac, ac);
-				printf("abPerp: %.2f, %.2f\n", abPerp.x, abPerp.y);
-				printf("acPerp: %.2f, %.2f\n", acPerp.x, acPerp.y);
 
 				//is the origin in R4
 				if(DotProduct(abPerp, ao) > 0) {
@@ -433,16 +418,11 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 				//line segment case
 				b_i = GetB(simplex_record, last);
 				b = simplex[b_i];
-				printf("b: %.2f, %.2f\n", b.x, b.y);
-				printf("a: %.2f, %.2f\n", a.x, a.y);
 				//compute AB
 				ab = VectorSub(a, b); //last minus b
-				printf("ab: %.2f, %.2f\n", ab.x, ab.y);
 				//get the perp to AB in the direction of the origin
 				abPerp = VectorTripleProduct(ab, ao, ab);
-				printf("abPerp: %.2f, %.2f\n", abPerp.x, abPerp.y);
 				Vector2 abPerpNorm = VectorNormalize(abPerp);
-				printf("abPerpNorm: %.5f, %.5f\n", abPerpNorm.x, abPerpNorm.y);
 				//set the direction to abPerp
 				d = abPerp;
 			}
@@ -512,12 +492,13 @@ Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
 
 	Vector2 simplex[3];
 	int gjk_result = GJK(rigidBodyOne, rigidBodyTwo, simplex);
-	printf("GJK complete with result %d\n", gjk_result);
-	printf("simplex:\n \t1: %.2f, %.2f\n\t2: %.2f, %.2f\n\t3: %.2f, %.2f\n", simplex[0].x, simplex[0].y, simplex[1].x, simplex[1].y, simplex[2].x, simplex[2].y);
-	
+
 	if(gjk_result == 0) {
 		//no collision, so report negative distance
 		e.distance = -1.0;
+		return e;
+	} else {
+		e.distance = 1.0;
 		return e;
 	}
 
@@ -580,8 +561,6 @@ Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
 }
 
 
-
-
 void PrintRigidBodies(float time, FILE *fp) {
 	Vector2 a,b,c,d;
 	printf("\nCURRENT TIME: %0.2f\n", time);
@@ -597,15 +576,18 @@ void PrintRigidBodies(float time, FILE *fp) {
     printf("\n");
 }
 
-
 void RunRigidBodySimulation() {
 
 	FILE *fp;
-	fp = fopen("/home/jbunker/c_workspace/war_games/sim_results.txt", "w");
+	fp = fopen("/home/jbunker/c_workspace/race_to_the_left/sim_results.txt", "w");
 
-    float totalSimulationTime = 20; // The simulation will run for 10 seconds.
+	
+
+    float totalSimulationTime = 100; // The simulation will run for 10 seconds.
     float currentTime = 0; // This accumulates the time that has passed.
-    float dt = 0.25; // Each step will take one second.
+    float dt = 0.1; // Each step will take one second.
+
+    double x_movement = 0.01, y_movement = 0.0;
     
     InitializeRigidBodies();
     PrintRigidBodies(currentTime, fp);
@@ -614,24 +596,24 @@ void RunRigidBodySimulation() {
 
         for (int i = 0; i < NUM_RIGID_BODIES - 1; ++i) {
             RigidBody *rigidBody = &rigidBodies[i];
-            ComputeForceAndTorque(rigidBody);
-            Vector2 linearAcceleration = (Vector2){rigidBody->force.x / rigidBody->shape.mass, rigidBody->force.y / rigidBody->shape.mass};
-            rigidBody->linearVelocity.x += linearAcceleration.x * dt;
-            rigidBody->linearVelocity.y += linearAcceleration.y * dt;
+            //ComputeForceAndTorque(rigidBody);
+            //Vector2 linearAcceleration = (Vector2){rigidBody->force.x / rigidBody->shape.mass, rigidBody->force.y / rigidBody->shape.mass};
+            
+            /*
+				COMPUTE THE OUTPUT OF THE NEURAL NETWORK AND TURN IT INTO THE NEW VELOCITY
+				x_movement = 0.0;
+				y_movement = 0.0;
+            */
 
-            //brute force detect collisions (very inefficient- should change this!)
-            for (int ii = 0; ii < NUM_RIGID_BODIES; ++ii) {
-            	if(i != ii) { //can't collide with self
-            		Edge e = EPA(rigidBody, &rigidBodies[ii]);
-            		printf("EPA result between %d and %d: %0.4f\n", i, ii, e.distance);
-            	}
-			}
+
+            rigidBody->linearVelocity.x += x_movement * dt;
+            rigidBody->linearVelocity.y += y_movement * dt;
+
+            Edge e = EPA(rigidBody, &rigidBodies[NUM_RIGID_BODIES - 1]);
+            printf("EPA result between %d and %d: %0.4f\n", i, NUM_RIGID_BODIES - 1, e.distance);
 
             rigidBody->position.x += rigidBody->linearVelocity.x * dt;
             rigidBody->position.y += rigidBody->linearVelocity.y * dt;
-            float angularAcceleration = rigidBody->torque / rigidBody->shape.momentOfInertia;
-            rigidBody->angularVelocity += angularAcceleration * dt;
-            rigidBody->angle += rigidBody->angularVelocity * dt;
         }
         
         currentTime += dt;
