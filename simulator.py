@@ -12,28 +12,61 @@ move_list = []
             # [Point(2.5, 6.25), Point(1, 7.5), Point(2, 8.5), Point(1.5, 7.5)],
             # [Point(2.5, 6.25), Point(1, 7.5), Point(1.5, 7.5), Point(1.5, 6.5)],
             # [Point(2.5, 6.25), Point(1.5, 7.5), Point(1.5, 7.5), Point(2.5, 6.25)]]
+spawn_list = []
 
-width = 14
-height = 9
+colors = ["red", "blue", "purple"]
 
+width = 20
+height = 20
+factor = 30.0
 def readInput():
-    lines = stdin.readlines("positions.txt")
+    pos_file = open("positions.txt", "r")
+    lines = pos_file.readlines()
     temp = []
     obstacles = True
     for line in lines:
+        print(line)
         if line[0] == 'b':
             l = line.split()
             temp.append(Point(float(l[1]), float(l[2])))
+        elif line[0] == 's':
+            l = line.split()
+            spawn_list.append([Point(float(l[1]),float(l[2])),float(l[3])])
+        elif line[0] == 'e':
+            poly_arr.append(temp)
+            temp =[]
         elif obstacles:
             poly_arr.append(temp)
+            l = line.split()
+            point = Point(float(l[1]), float(l[2]))
+            angle = float(l[2])
+            temp = []
+            temp.append([point, angle])
+            print(poly_arr)
+            obstacles = False
+        elif line[0] == '0':
+            move_list.append(temp)
+            temp = []
+            print(move_list)
+            l = line.split()
+            point = Point(float(l[1]), float(l[2]))
+            angle = float(l[2])
+            temp.append([point, angle])
+        else:
+            l = line.split()
+            point = Point(float(l[1]), float(l[2]))
+            angle = float(l[2])
+            temp.append([point, angle])
+    i = 0
+    for start in move_list[0]:
+        fight_arr.append([start[0], start[1], colors[i]])
+        i += 1
+
 
 def setWindow():
-    win = GraphWin(width=width*100, height=height*100)
+    win = GraphWin(width=width*factor, height=height*factor)
     win.setCoords(0,0,width,height)
-    win.setBackground("green")
-    rect = Rectangle(Point(0.1, 0.1), Point(width-0.1,height-0.1))
-    rect.draw(win)
-    rect.setFill("#654321")
+    win.setBackground("#654321")
     return win
 
 
@@ -44,6 +77,13 @@ def setObstacles(win, polygons):
         p.draw(win)
         p.setFill("green")
         p.setOutline("green")
+
+def setSpawns(win):
+    for spawn in spawn_list:
+        c = Circle(spawn[0], spawn[1])
+        c.draw(win)
+        c.setFill("purple")
+        c.setOutline("purple")
 
 def setFighters(win, fs):
     fighters = []
@@ -72,8 +112,10 @@ def end_game(win, fighters, winner):
     win.getMouse()
 
 def simulate():
+    readInput()
     win = setWindow()
     setObstacles(win, poly_arr)
+    setSpawns(win)
 
 
     fighters = setFighters(win, fight_arr)

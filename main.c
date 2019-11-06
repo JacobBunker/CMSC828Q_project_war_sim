@@ -7,32 +7,36 @@
 #include <float.h>
 #include <limits.h>
 
-
 #define NUM_RIGID_BODIES 2
 #define TOLERANCE 0.00001
+#define WALL_WIDTH 2.0
+#define SEED 40
 // the tolerance should be something positive close to zero (ex. 0.00001)
 
 //see https://www.toptal.com/game/video-game-physics-part-i-an-introduction-to-rigid-body-dynamics
 //for resources on this system
 
-typedef struct {
+typedef struct
+{
 	float x;
 	float y;
 } Vector2;
 
-struct Node {
+struct Node
+{
 	Vector2 data;
-	struct Node* next;
+	struct Node *next;
 };
 
-
-typedef struct {
+typedef struct
+{
 	Vector2 normal;
 	int index;
 	double distance;
 } Edge;
 
-typedef struct {
+typedef struct
+{
 	float width;
 	float height;
 	float mass;
@@ -40,184 +44,346 @@ typedef struct {
 	Vector2 vertices[4];
 } BoxShape;
 
+typedef struct
+{
+	int point_number;
+	Vector2 **points;
+} Obstacle;
+
+typedef struct
+{
+	int spawn_count;
+	int obstacle_count;
+	float spawn_radius;
+	Vector2 **spawns;
+	Obstacle **obstacles;
+} Map;
+
+void GenerateWalls(float size, Map *map)
+{
+	int i = 0;
+	// Define Left Wall
+	map->obstacles[i] = malloc(sizeof(Obstacle));
+	map->obstacles[i]->point_number = 4;
+	map->obstacles[i]->points = malloc(4 * sizeof(char *));
+	map->obstacles[i]->points[0] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[0]->x = 0.0;
+	map->obstacles[i]->points[0]->y = 0.0;
+	map->obstacles[i]->points[1] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[1]->x = WALL_WIDTH;
+	map->obstacles[i]->points[1]->y = 0.0;
+	map->obstacles[i]->points[2] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[2]->x = WALL_WIDTH;
+	map->obstacles[i]->points[2]->y = size;
+	map->obstacles[i]->points[3] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[3]->x = 0.0;
+	map->obstacles[i]->points[3]->y = size;
+	i++;
+
+	//Define Bottom Wall
+	map->obstacles[i] = malloc(sizeof(Obstacle));
+	map->obstacles[i]->point_number = 4;
+	map->obstacles[i]->points = malloc(4 * sizeof(char *));
+	map->obstacles[i]->points[0] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[0]->x = 0.0;
+	map->obstacles[i]->points[0]->y = 0.0;
+	map->obstacles[i]->points[1] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[1]->x = size;
+	map->obstacles[i]->points[1]->y = 0.0;
+	map->obstacles[i]->points[2] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[2]->x = size;
+	map->obstacles[i]->points[2]->y = WALL_WIDTH;
+	map->obstacles[i]->points[3] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[3]->x = 0.0;
+	map->obstacles[i]->points[3]->y = WALL_WIDTH;
+	i++;
+
+	//Define Right Wall
+	map->obstacles[i] = malloc(sizeof(Obstacle));
+	map->obstacles[i]->point_number = 4;
+	map->obstacles[i]->points = malloc(4 * sizeof(char *));
+	map->obstacles[i]->points[0] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[0]->x = size - WALL_WIDTH;
+	map->obstacles[i]->points[0]->y = 0.0;
+	map->obstacles[i]->points[1] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[1]->x = size;
+	map->obstacles[i]->points[1]->y = 0.0;
+	map->obstacles[i]->points[2] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[2]->x = size;
+	map->obstacles[i]->points[2]->y = size;
+	map->obstacles[i]->points[3] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[3]->x = size - WALL_WIDTH;
+	map->obstacles[i]->points[3]->y = size;
+	i++;
+
+	//Define Top Wall
+	map->obstacles[i] = malloc(sizeof(Obstacle));
+	map->obstacles[i]->point_number = 4;
+	map->obstacles[i]->points = malloc(4 * sizeof(char *));
+	map->obstacles[i]->points[0] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[0]->x = 0.0;
+	map->obstacles[i]->points[0]->y = size - WALL_WIDTH;
+	map->obstacles[i]->points[1] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[1]->x = size;
+	map->obstacles[i]->points[1]->y = size - WALL_WIDTH;
+	map->obstacles[i]->points[2] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[2]->x = size;
+	map->obstacles[i]->points[2]->y = size;
+	map->obstacles[i]->points[3] = malloc(sizeof(Vector2));
+	map->obstacles[i]->points[3]->x = 0.0;
+	map->obstacles[i]->points[3]->y = size;
+}
+
+int touching_circles(float x1, float y1, float x2,
+					 float y2, float r1, float r2)
+{
+	float distSq = (x1 - x2) * (x1 - x2) +
+				 (y1 - y2) * (y1 - y2);
+	float radSumSq = (r1 + r2) * (r1 + r2);
+	return distSq < radSumSq;
+}
+
+int touching_wall_lower(float c, float r, float size){
+	return (c-r < WALL_WIDTH);
+}
+int touching_wall_upper(float c, float r, float size){
+	return (c+r > size-WALL_WIDTH);
+}
+
+void GenerateMap(float size, int spawns, float spawn_radius, float density, Map *map)
+{
+	map->spawn_count = spawns;
+	map->obstacle_count = density;
+	map->spawn_radius = spawn_radius;
+	map->spawns = malloc(spawns * sizeof(char*));
+	map->obstacles = malloc((4 + density) * sizeof(char *));
+	GenerateWalls(size, map);
+	int i = 0;
+	srand(SEED);
+	while (i < spawns)
+	{
+		float x = (float)rand() / (float)(RAND_MAX / size);
+		float y = (float)rand() / (float)(RAND_MAX / size);
+		if(touching_wall_lower(x, spawn_radius, size)){
+			x += WALL_WIDTH;
+		}
+		else if(touching_wall_upper(x, spawn_radius, size)){
+			x -= WALL_WIDTH;
+		}
+		if(touching_wall_lower(y, spawn_radius, size)){
+			y += WALL_WIDTH;
+		}
+		else if(touching_wall_upper(y, spawn_radius, size)){
+			y -= WALL_WIDTH;
+		}
+		int j = 0;
+		int touching = 0;
+		while(j<i && !touching){
+			touching = touching || touching_circles(x,y, map->spawns[j]->x, map->spawns[j]->y, spawn_radius, spawn_radius);
+			j+= 1;
+		}
+		if (!touching){
+			map->spawns[i] = malloc(sizeof(Vector2));
+			map->spawns[i]->x = x;
+			map->spawns[i]->y = y;
+			i += 1;
+		}
+	}
+}
+
 // Calculates the inertia of a box shape and stores it in the momentOfInertia variable.
-void CalculateBoxInertia(BoxShape *boxShape) {
-    float m = boxShape->mass;
-    float w = boxShape->width;
-    float h = boxShape->height;
-    boxShape->momentOfInertia = m * (w * w + h * h) / 12;
+void CalculateBoxInertia(BoxShape *boxShape)
+{
+	float m = boxShape->mass;
+	float w = boxShape->width;
+	float h = boxShape->height;
+	boxShape->momentOfInertia = m * (w * w + h * h) / 12;
 }
 
 // Two dimensional rigid body
-typedef struct {
-    Vector2 position;
-    Vector2 linearVelocity;
-    float angle;
-    float angularVelocity;
-    Vector2 force;
-    float torque;
-    BoxShape shape;
-    int vertex_number;
+typedef struct
+{
+	Vector2 position;
+	Vector2 linearVelocity;
+	float angle;
+	float angularVelocity;
+	Vector2 force;
+	float torque;
+	BoxShape shape;
+	int vertex_number;
 } RigidBody;
 
 RigidBody rigidBodies[NUM_RIGID_BODIES];
 
-void PrintRigidBodies() {
-    for (int i = 0; i < NUM_RIGID_BODIES; ++i) {
-        RigidBody *rigidBody = &rigidBodies[i];
-        printf("body[%i] p = (%.2f, %.2f), a = %.2f\n", i, rigidBody->position.x, rigidBody->position.y, rigidBody->angle);
-		FILE * fp;
-		fp = fopen ("/home/jack/828/war_sim/positions.txt","a");
- 		fprintf (fp, "%i %.2f %.2f %.2f\n", i, rigidBody->position.x, rigidBody->position.y, rigidBody->angle);  
-  	 	fclose (fp);
-    }
+void PrintRigidBodies()
+{
+	for (int i = 0; i < NUM_RIGID_BODIES; ++i)
+	{
+		RigidBody *rigidBody = &rigidBodies[i];
+		printf("body[%i] p = (%.2f, %.2f), a = %.2f\n", i, rigidBody->position.x, rigidBody->position.y, rigidBody->angle);
+		FILE *fp;
+		fp = fopen("/home/jack/828/war_sim/positions.txt", "a");
+		fprintf(fp, "%i %.2f %.2f %.2f\n", i, rigidBody->position.x, rigidBody->position.y, rigidBody->angle);
+		fclose(fp);
+	}
 }
 
 // Initializes rigid bodies with random positions and angles and zero linear and angular velocities.
 // They're all initialized with a box shape of random dimensions.
-void InitializeRigidBodies() {
-    for (int i = 0; i < NUM_RIGID_BODIES - 1; ++i) {
-        RigidBody *rigidBody = &rigidBodies[i];
-        rigidBody->position = (Vector2){arc4random_uniform(50), arc4random_uniform(50)};
-        rigidBody->angle = arc4random_uniform(360)/360.f * M_PI * 2;
-        rigidBody->linearVelocity = (Vector2){0, 0};
-        rigidBody->angularVelocity = 0;
-        
-        BoxShape shape;
-        shape.mass = 10;
-        shape.width = 1 + arc4random_uniform(2);
-        shape.height = 1 + arc4random_uniform(2);
+void InitializeRigidBodies()
+{
+	for (int i = 0; i < NUM_RIGID_BODIES - 1; ++i)
+	{
+		RigidBody *rigidBody = &rigidBodies[i];
+		rigidBody->position = (Vector2){arc4random_uniform(50), arc4random_uniform(50)};
+		rigidBody->angle = arc4random_uniform(360) / 360.f * M_PI * 2;
+		rigidBody->linearVelocity = (Vector2){0, 0};
+		rigidBody->angularVelocity = 0;
 
-        //top right
-        shape.vertices[0].x = shape.width/2.0;
-        shape.vertices[0].y = shape.height/2.0;
-        //top left
-        shape.vertices[1].x = -shape.width/2.0;
-        shape.vertices[1].y = shape.height/2.0;
-        //bottom right
-        shape.vertices[2].x = shape.width/2.0;
-        shape.vertices[2].y = -shape.height/2.0;
-        //bottom left
-        shape.vertices[3].x = -shape.width/2.0;
-        shape.vertices[3].y = -shape.height/2.0;
-        rigidBody->vertex_number = 4;
-        CalculateBoxInertia(&shape);
-        rigidBody->shape = shape;
-		FILE * fp;
-		fp = fopen ("/home/jack/828/war_sim/positions.txt","a");
- 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[0].x, shape.vertices[0].y);  
- 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[1].x, shape.vertices[1].y);  
- 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[2].x, shape.vertices[2].y);  
- 		fprintf (fp, "b %.2f %.2f\n", shape.vertices[3].x, shape.vertices[3].y);  
-  	 	fclose (fp);
-    }
+		BoxShape shape;
+		shape.mass = 10;
+		shape.width = 1 + arc4random_uniform(2);
+		shape.height = 1 + arc4random_uniform(2);
 
-    //create the ground
-    RigidBody *rigidBody = &rigidBodies[NUM_RIGID_BODIES-1];
-    rigidBody->position = (Vector2){0.0, -25.0};
-    rigidBody->angle = 0.0;
-    rigidBody->linearVelocity = (Vector2){0, 0};
-    rigidBody->angularVelocity = 0;
-    
-    BoxShape shape;
-    shape.mass = 1000000;
-    shape.width = 1000;
-    shape.height = 50;
+		//top right
+		shape.vertices[0].x = shape.width / 2.0;
+		shape.vertices[0].y = shape.height / 2.0;
+		//top left
+		shape.vertices[1].x = -shape.width / 2.0;
+		shape.vertices[1].y = shape.height / 2.0;
+		//bottom right
+		shape.vertices[2].x = shape.width / 2.0;
+		shape.vertices[2].y = -shape.height / 2.0;
+		//bottom left
+		shape.vertices[3].x = -shape.width / 2.0;
+		shape.vertices[3].y = -shape.height / 2.0;
+		rigidBody->vertex_number = 4;
+		CalculateBoxInertia(&shape);
+		rigidBody->shape = shape;
+		FILE *fp;
+		fp = fopen("/home/jack/828/war_sim/positions.txt", "a");
+		fprintf(fp, "b %.2f %.2f\n", shape.vertices[0].x, shape.vertices[0].y);
+		fprintf(fp, "b %.2f %.2f\n", shape.vertices[1].x, shape.vertices[1].y);
+		fprintf(fp, "b %.2f %.2f\n", shape.vertices[2].x, shape.vertices[2].y);
+		fprintf(fp, "b %.2f %.2f\n", shape.vertices[3].x, shape.vertices[3].y);
+		fclose(fp);
+	}
 
-    //top right
-    shape.vertices[0].x = shape.width/2.0;
-    shape.vertices[0].y = shape.height/2.0;
-    //top left
-    shape.vertices[1].x = -shape.width/2.0;
-    shape.vertices[1].y = shape.height/2.0;
-    //bottom right
-    shape.vertices[2].x = shape.width/2.0;
-    shape.vertices[2].y = -shape.height/2.0;
-    //bottom left
-    shape.vertices[3].x = -shape.width/2.0;
-    shape.vertices[3].y = -shape.height/2.0;
-    rigidBody->vertex_number = 4;
-    CalculateBoxInertia(&shape);
-    rigidBody->shape = shape;
+	//create the ground
+	RigidBody *rigidBody = &rigidBodies[NUM_RIGID_BODIES - 1];
+	rigidBody->position = (Vector2){0.0, -25.0};
+	rigidBody->angle = 0.0;
+	rigidBody->linearVelocity = (Vector2){0, 0};
+	rigidBody->angularVelocity = 0;
+
+	BoxShape shape;
+	shape.mass = 1000000;
+	shape.width = 1000;
+	shape.height = 50;
+
+	//top right
+	shape.vertices[0].x = shape.width / 2.0;
+	shape.vertices[0].y = shape.height / 2.0;
+	//top left
+	shape.vertices[1].x = -shape.width / 2.0;
+	shape.vertices[1].y = shape.height / 2.0;
+	//bottom right
+	shape.vertices[2].x = shape.width / 2.0;
+	shape.vertices[2].y = -shape.height / 2.0;
+	//bottom left
+	shape.vertices[3].x = -shape.width / 2.0;
+	shape.vertices[3].y = -shape.height / 2.0;
+	rigidBody->vertex_number = 4;
+	CalculateBoxInertia(&shape);
+	rigidBody->shape = shape;
 }
 
 // Applies a force at a point in the body, inducing some torque.
-void ComputeForceAndTorque(RigidBody *rigidBody) {
-    Vector2 f = (Vector2){0, -100};
-    rigidBody->force = f;
-    // r is the 'arm vector' that goes from the center of mass to the point of force application
-    Vector2 r = (Vector2){rigidBody->shape.width / 2, rigidBody->shape.height / 2};
-    rigidBody->torque = r.x * f.y - r.y * f.x;
-}
-
-void FreeList(struct Node* head)
+void ComputeForceAndTorque(RigidBody *rigidBody)
 {
-   	struct Node* tmp;
-
-   	while (head != NULL)
-   	{
-       	tmp = head;
-       	head = head->next;
-       	free(tmp);
-    }
+	Vector2 f = (Vector2){0, -100};
+	rigidBody->force = f;
+	// r is the 'arm vector' that goes from the center of mass to the point of force application
+	Vector2 r = (Vector2){rigidBody->shape.width / 2, rigidBody->shape.height / 2};
+	rigidBody->torque = r.x * f.y - r.y * f.x;
 }
 
+void FreeList(struct Node *head)
+{
+	struct Node *tmp;
 
-Vector2 VectorSub(Vector2 a, Vector2 b) {
+	while (head != NULL)
+	{
+		tmp = head;
+		head = head->next;
+		free(tmp);
+	}
+}
+
+Vector2 VectorSub(Vector2 a, Vector2 b)
+{
 	Vector2 c;
 	c.x = a.x - b.x;
 	c.y = a.y - b.y;
 	return c;
 }
 
-Vector2 VectorNegate(Vector2 a) {
+Vector2 VectorNegate(Vector2 a)
+{
 	Vector2 b;
 	b.x = -a.x;
 	b.y = -a.y;
 	return b;
 }
 
-Vector2 VectorTripleProduct(Vector2 a, Vector2 b, Vector2 c) {
+Vector2 VectorTripleProduct(Vector2 a, Vector2 b, Vector2 c)
+{
 	Vector2 d;
 	d.x = a.x * b.x * c.x;
 	d.y = a.y * b.y * c.y;
 	return d;
 }
 
-double VectorNorm(Vector2 a) {
-	return sqrt((a.x*a.x) + (a.y*a.y));
+double VectorNorm(Vector2 a)
+{
+	return sqrt((a.x * a.x) + (a.y * a.y));
 }
 
-Vector2 VectorDivideConstant(Vector2 a, double b) {
+Vector2 VectorDivideConstant(Vector2 a, double b)
+{
 	Vector2 c;
 	c.x = a.x / b;
 	c.y = a.y / b;
 	return c;
 }
 
-Vector2 VectorNormalize(Vector2 a){
+Vector2 VectorNormalize(Vector2 a)
+{
 	return VectorDivideConstant(a, VectorNorm(a));
 }
 
-
-Vector2 AffineTransform(Vector2 vertex, Vector2 position, float angle) {
-	double cosA = cos((double) (angle*M_PI/180.0));
-	double sinA = sin((double) (angle*M_PI/180.0));
+Vector2 AffineTransform(Vector2 vertex, Vector2 position, float angle)
+{
+	double cosA = cos((double)(angle * M_PI / 180.0));
+	double sinA = sin((double)(angle * M_PI / 180.0));
 	Vector2 output;
 	output.x = ((vertex.x * cosA) - (vertex.y * sinA)) + position.x;
 	output.y = ((vertex.x * sinA) + (vertex.y * cosA)) + position.y;
 	return output;
 }
 
-Vector2 GetFarthestPointInDirection(Vector2 *vertices, int count, Vector2 d) {
+Vector2 GetFarthestPointInDirection(Vector2 *vertices, int count, Vector2 d)
+{
 	float highest = -FLT_MAX;
-	Vector2 support = (Vector2) {0, 0};
+	Vector2 support = (Vector2){0, 0};
 
-	for (int i = 0; i < count; i++) {
+	for (int i = 0; i < count; i++)
+	{
 		Vector2 v = vertices[i];
 		float dot = v.x * d.x + v.y * d.y;
 
-		if (dot > highest) {
+		if (dot > highest)
+		{
 			highest = dot;
 			support = v;
 		}
@@ -226,11 +392,13 @@ Vector2 GetFarthestPointInDirection(Vector2 *vertices, int count, Vector2 d) {
 	return support;
 }
 
-Vector2 Support(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 d) {
+Vector2 Support(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 d)
+{
 	//d is a vector direction
 	//get points on edge of the shapes in opposite directions
 	Vector2 zero;
-	zero.x = 0.0; zero.y = 0.0;
+	zero.x = 0.0;
+	zero.y = 0.0;
 	Vector2 p1 = GetFarthestPointInDirection((rigidBodyOne->shape).vertices, rigidBodyOne->vertex_number, AffineTransform(d, zero, rigidBodyOne->angle));
 	Vector2 p2 = GetFarthestPointInDirection((rigidBodyTwo->shape).vertices, rigidBodyTwo->vertex_number, AffineTransform(VectorNegate(d), zero, rigidBodyTwo->angle));
 	//perform Minkowski Difference
@@ -239,62 +407,83 @@ Vector2 Support(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 d) {
 	return p3;
 }
 
-
 //methods to handle simplex
-int GetEmpty(int list[3]) {
-	if(list[0] < 0) {
+int GetEmpty(int list[3])
+{
+	if (list[0] < 0)
+	{
 		return 0;
 	}
-	if(list[1] < 0) {
+	if (list[1] < 0)
+	{
 		return 1;
 	}
-	if(list[2] < 0) {
+	if (list[2] < 0)
+	{
 		return 2;
 	}
 	return -1;
 }
 
-int GetLast(int list[3]) {
-	if(list[0] > list[1]) {
-		if(list[0] > list[2]) {
+int GetLast(int list[3])
+{
+	if (list[0] > list[1])
+	{
+		if (list[0] > list[2])
+		{
 			return 0;
 		}
-		else {
+		else
+		{
 			return 2;
 		}
-	} else {
-		if(list[1] > list[2]) {
+	}
+	else
+	{
+		if (list[1] > list[2])
+		{
 			return 1;
 		}
-		else {
+		else
+		{
 			return 2;
 		}
 	}
 }
 
 //get the next to last addition
-int GetB(int list[3], int a) {
-	if(a == 0) {
-		if(list[1] > list[2]) {
+int GetB(int list[3], int a)
+{
+	if (a == 0)
+	{
+		if (list[1] > list[2])
+		{
 			return 1;
 		}
-		else {
+		else
+		{
 			return 2;
 		}
 	}
-	if(a == 1) {
-		if(list[0] > list[2]) {
+	if (a == 1)
+	{
+		if (list[0] > list[2])
+		{
 			return 0;
 		}
-		else {
+		else
+		{
 			return 2;
 		}
 	}
-	if(a == 2) {
-		if(list[0] > list[1]) {
+	if (a == 2)
+	{
+		if (list[0] > list[1])
+		{
 			return 0;
 		}
-		else {
+		else
+		{
 			return 1;
 		}
 	}
@@ -302,55 +491,70 @@ int GetB(int list[3], int a) {
 }
 
 //get the least recent addition
-int GetC(int list[3], int a) {
-	if(a == 0) {
-		if(list[1] < list[2]) {
+int GetC(int list[3], int a)
+{
+	if (a == 0)
+	{
+		if (list[1] < list[2])
+		{
 			return 1;
 		}
-		else {
+		else
+		{
 			return 2;
 		}
 	}
-	if(a == 1) {
-		if(list[0] < list[2]) {
+	if (a == 1)
+	{
+		if (list[0] < list[2])
+		{
 			return 0;
 		}
-		else {
+		else
+		{
 			return 2;
 		}
 	}
-	if(a == 2) {
-		if(list[0] < list[1]) {
+	if (a == 2)
+	{
+		if (list[0] < list[1])
+		{
 			return 0;
 		}
-		else {
+		else
+		{
 			return 1;
 		}
 	}
 	return -1;
 }
 
-int GetSize(int list[3]) {
+int GetSize(int list[3])
+{
 	int i = 0;
-	if(list[0] >= 0) {
+	if (list[0] >= 0)
+	{
 		i++;
 	}
-	if(list[1] >= 0) {
+	if (list[1] >= 0)
+	{
 		i++;
 	}
-	if(list[2] >= 0) {
+	if (list[2] >= 0)
+	{
 		i++;
 	}
 	return i;
 }
 
-double DotProduct(Vector2 a, Vector2 b) {
-	return (a.x*b.x) + (a.y*b.y);
+double DotProduct(Vector2 a, Vector2 b)
+{
+	return (a.x * b.x) + (a.y * b.y);
 }
 
-
-int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
-	Vector2 a,b,c,ao,ab,ac,abPerp,acPerp;
+int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex)
+{
+	Vector2 a, b, c, ao, ab, ac, abPerp, acPerp;
 	int t, last, b_i, c_i;
 
 	Vector2 d;
@@ -364,22 +568,27 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 	simplex_record[2] = -1;
 	simplex[0] = Support(rigidBodyOne, rigidBodyTwo, d);
 	d = VectorNegate(d);
-	while(1) {
+	while (1)
+	{
 		t = GetEmpty(simplex_record);
 		simplex[t] = Support(rigidBodyOne, rigidBodyTwo, d);
 		simplex_record[t] = counter;
 		counter++;
 		last = GetLast(simplex_record);
 		a = simplex[last];
-		if((DotProduct(a, d) <= 0) && (GetSize(simplex_record) == 3)) {
+		if ((DotProduct(a, d) <= 0) && (GetSize(simplex_record) == 3))
+		{
 			//if the point added last was not past the origin in the direction of d
 			//then the Minkowski Sum cannot possibly contain the origin since
 			//the last point added is on the edge of the Minkowski Difference
 			return 0;
-		} else {
+		}
+		else
+		{
 			//otherwise we need to determine if the origin is in the current simplex
 			ao = VectorNegate(a);
-			if(GetSize(simplex_record) == 3) {
+			if (GetSize(simplex_record) == 3)
+			{
 				//triangle case
 				//get b and c
 				b_i = GetB(simplex_record, last);
@@ -393,24 +602,32 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 				abPerp = VectorTripleProduct(ac, ab, ab);
 				acPerp = VectorTripleProduct(ab, ac, ac);
 				//is the origin in R4
-				if(DotProduct(abPerp, ao) > 0) {
+				if (DotProduct(abPerp, ao) > 0)
+				{
 					//remove point C
 					simplex_record[c_i] = -1;
 					//set the new direction to abPerp
 					d = abPerp;
-				} else {
+				}
+				else
+				{
 					//is the origin in R3
-					if(DotProduct(acPerp, ao) > 0) {
+					if (DotProduct(acPerp, ao) > 0)
+					{
 						//remove point B
 						simplex_record[b_i] = -1;
 						//set the new direction to acPerp
 						d = acPerp;
-					} else {
+					}
+					else
+					{
 						//otherwise we know it's in R5 so we can return true
 						return 1;
 					}
 				}
-			} else {
+			}
+			else
+			{
 				//line segment case
 				b_i = GetB(simplex_record, last);
 				b = simplex[b_i];
@@ -427,22 +644,24 @@ int GJK(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo, Vector2 *simplex) {
 	return 0;
 }
 
-
-Edge FindClosestEdge(struct Node *simplex_head) {
+Edge FindClosestEdge(struct Node *simplex_head)
+{
 	Edge closest;
 	closest.distance = DBL_MAX;
 	Vector2 a, b, e, oa, n;
 	double d;
 
-	struct Node* current = simplex_head;
-	struct Node* next;
+	struct Node *current = simplex_head;
+	struct Node *next;
 
 	int last_switch = 0;
 	int i = 1;
 
-	while(last_switch == 0) {
+	while (last_switch == 0)
+	{
 		next = current->next;
-		if(next == NULL) { //do wrap around
+		if (next == NULL)
+		{ //do wrap around
 			next = simplex_head;
 			last_switch = 1;
 			i = 0;
@@ -460,7 +679,8 @@ Edge FindClosestEdge(struct Node *simplex_head) {
 		//calculate distance from origin to the edge
 		d = DotProduct(n, a);
 		//check for min distance
-		if (d < closest.distance) {
+		if (d < closest.distance)
+		{
 			closest.distance = d;
 			closest.normal = n;
 			closest.index = i;
@@ -472,12 +692,11 @@ Edge FindClosestEdge(struct Node *simplex_head) {
 	return closest;
 }
 
-
-
-Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
-	struct Node* head = NULL;
-	struct Node* second = NULL;
-	struct Node* third = NULL;
+Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo)
+{
+	struct Node *head = NULL;
+	struct Node *second = NULL;
+	struct Node *third = NULL;
 
 	Edge e;
 	Vector2 p;
@@ -487,7 +706,8 @@ Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
 	Vector2 simplex[3];
 	int gjk_result = GJK(rigidBodyOne, rigidBodyTwo, simplex);
 	printf("GJK complete with result %d\n", gjk_result);
-	if(gjk_result == 0) {
+	if (gjk_result == 0)
+	{
 		//no collision, so report negative distance
 		e.distance = -1.0;
 		return e;
@@ -503,41 +723,49 @@ Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
 	third->data = simplex[2];
 	third->next = NULL;
 
-	while(1) {
+	while (1)
+	{
 		//obtain the edge closest to the origin on the Minkowski Difference
 		e = FindClosestEdge(head);
 		p = Support(rigidBodyOne, rigidBodyTwo, e.normal);
 		//check distance from origin to the edge against
 		//distance p along e.normal
 		d = DotProduct(p, e.normal);
-		if(d - e.distance < TOLERANCE) {
+		if (d - e.distance < TOLERANCE)
+		{
 			//if the difference is less than the tolerance then we can assume
 			//that we cannot expand the simplex any further, and have our solution
 			e.distance = d; //re-using struct for convenience
 			FreeList(head);
 			return e;
-		} else {
+		}
+		else
+		{
 			printf("over tolerance with value: %.6f\n", (d - e.distance));
 			//have not reached the edge of the Minkowski Difference
 			// continue expanding by adding the new point to the simlpex
 			//in between the points that made the closest edge
-			struct Node* current = NULL;
-			struct Node* previous = NULL;
-			struct Node* temp = (struct Node *)malloc(sizeof(struct Node));
+			struct Node *current = NULL;
+			struct Node *previous = NULL;
+			struct Node *temp = (struct Node *)malloc(sizeof(struct Node));
 
 			current = head;
 			i = 0;
-			while(i < e.index) {
+			while (i < e.index)
+			{
 				previous = current;
 				current = current->next;
 				i++;
 			}
-			if(i == 0) { //betwen the last point and the first
+			if (i == 0)
+			{ //betwen the last point and the first
 				temp->data = head->data;
 				temp->next = head->next;
 				head->data = p;
 				head->next = temp;
-			} else { //between the current and previous
+			}
+			else
+			{ //between the current and previous
 				temp->data = p;
 				temp->next = current;
 				previous->next = temp;
@@ -546,45 +774,67 @@ Edge EPA(RigidBody *rigidBodyOne, RigidBody *rigidBodyTwo) {
 	}
 }
 
-void RunRigidBodySimulation() {
-    float totalSimulationTime = 10; // The simulation will run for 10 seconds.
-    float currentTime = 0; // This accumulates the time that has passed.
-    float dt = 1; // Each step will take one second.
-    
-    InitializeRigidBodies();
-    PrintRigidBodies();
-    
-    while (currentTime < totalSimulationTime) {
-            
-        for (int i = 0; i < NUM_RIGID_BODIES - 1; ++i) {
-            RigidBody *rigidBody = &rigidBodies[i];
-            ComputeForceAndTorque(rigidBody);
-            Vector2 linearAcceleration = (Vector2){rigidBody->force.x / rigidBody->shape.mass, rigidBody->force.y / rigidBody->shape.mass};
-            rigidBody->linearVelocity.x += linearAcceleration.x * dt;
-            rigidBody->linearVelocity.y += linearAcceleration.y * dt;
+void RunRigidBodySimulation()
+{
+	float totalSimulationTime = 10; // The simulation will run for 10 seconds.
+	float currentTime = 0;			// This accumulates the time that has passed.
+	float dt = 1;					// Each step will take one second.
 
-            //brute force detect collisions (very inefficient- should change this!)
-            for (int ii = 0; ii < NUM_RIGID_BODIES; ++ii) {
-            	if(i != ii) { //can't collide with self
-            		Edge e = EPA(rigidBody, &rigidBodies[ii]);
-            		printf("EPA result between %d and %d: %0.4f\n", i, ii, e.distance);
-            	}
+	InitializeRigidBodies();
+	PrintRigidBodies();
+
+	while (currentTime < totalSimulationTime)
+	{
+
+		for (int i = 0; i < NUM_RIGID_BODIES - 1; ++i)
+		{
+			RigidBody *rigidBody = &rigidBodies[i];
+			ComputeForceAndTorque(rigidBody);
+			Vector2 linearAcceleration = (Vector2){rigidBody->force.x / rigidBody->shape.mass, rigidBody->force.y / rigidBody->shape.mass};
+			rigidBody->linearVelocity.x += linearAcceleration.x * dt;
+			rigidBody->linearVelocity.y += linearAcceleration.y * dt;
+
+			//brute force detect collisions (very inefficient- should change this!)
+			for (int ii = 0; ii < NUM_RIGID_BODIES; ++ii)
+			{
+				if (i != ii)
+				{ //can't collide with self
+					Edge e = EPA(rigidBody, &rigidBodies[ii]);
+					printf("EPA result between %d and %d: %0.4f\n", i, ii, e.distance);
+				}
 			}
 
-            rigidBody->position.x += rigidBody->linearVelocity.x * dt;
-            rigidBody->position.y += rigidBody->linearVelocity.y * dt;
-            float angularAcceleration = rigidBody->torque / rigidBody->shape.momentOfInertia;
-            rigidBody->angularVelocity += angularAcceleration * dt;
-            rigidBody->angle += rigidBody->angularVelocity * dt;
-        }
-        
-        PrintRigidBodies();
-        currentTime += dt;
-    }
+			rigidBody->position.x += rigidBody->linearVelocity.x * dt;
+			rigidBody->position.y += rigidBody->linearVelocity.y * dt;
+			float angularAcceleration = rigidBody->torque / rigidBody->shape.momentOfInertia;
+			rigidBody->angularVelocity += angularAcceleration * dt;
+			rigidBody->angle += rigidBody->angularVelocity * dt;
+		}
+
+		PrintRigidBodies();
+		currentTime += dt;
+	}
 }
 
-int main( int argc, const char* argv[] )
+int main(int argc, const char *argv[])
 {
+	Map *map = malloc(sizeof(Map));
+	int spawns = 5;
+	float rad = 1.1;
+	GenerateMap(20.0, spawns, rad, 0, map);
+	FILE *fp;
+	fp = fopen("/home/jack/828/war_sim/positions.txt", "a");
+	for(int i = 0; i < 4; i++){
+		for(int j = 0; j< 4; j++){
+			fprintf(fp, "b %.2f %.2f\n", map->obstacles[i]->points[j]->x, map->obstacles[i]->points[j]->y);
+		}
+		fprintf(fp, "e\n");
+	}
+	for(int i = 0; i < spawns; i++){
+			fprintf(fp, "s %.2f %.2f %.2f\n", map->spawns[i]->x, map->spawns[i]->y, rad);
+	}
+	fclose(fp);
+
 	printf("\nWAR GAME SIMULATION\n\n");
 	RunRigidBodySimulation();
 }

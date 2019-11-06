@@ -1,13 +1,14 @@
 from graphics import Circle, Line, Point
 import math
 
-theta = math.pi/4
+theta_offset = math.pi/4
 class Fighter():
     def __init__(self, points, win, color):
         self.win = win
-        self.radius = 0.1
+        self.radius = 1
         self.position = points[0]
-        self.looking = points[1]
+        self.look_length = 5.0
+        self.theta = points[1]
         self.fire_line = self.get_fire()
         self.color = color
         self.view_left = self.get_left()
@@ -42,17 +43,17 @@ class Fighter():
         self.body.move(position.x-self.position.x, position.y-self.position.y)
         self.position = position
 
-    def update_view(self, looking):
+    def update_view(self, angle):
         self.fire_line.undraw()
         self.view_left.undraw()
         self.view_right.undraw()
-        self.looking = looking
+        self.theta = angle
         self.fire_line = self.get_fire()
         self.view_left = self.get_left()
         self.view_right = self.get_right()
         if self.firing:
             self.fire_line.draw(self.win)
-        if self.looking:
+        if self.view:
             self.view_left.draw(self.win)
             self.view_right.draw(self.win)
 
@@ -74,21 +75,21 @@ class Fighter():
             self.view_right.undraw()
 
     def get_left(self):
-        x = self.position.x + (self.looking.x - self.position.x)*math.cos(theta) - (self.looking.y - self.position.y)*math.sin(theta)
-        y = self.position.y + (self.looking.x - self.position.x)*math.sin(theta) + (self.looking.y - self.position.y)*math.cos(theta)
+        x = self.position.x + (self.look_length)*math.cos(self.theta+theta_offset)
+        y = self.position.y + (self.look_length)*math.sin(self.theta+theta_offset)
         l = Line(self.position, Point(x,y))
         l.setFill(self.color)
         return l
 
     def get_right(self):
-        x = self.position.x + (self.looking.x - self.position.x)*math.cos(-theta) - (self.looking.y - self.position.y)*math.sin(-theta)
-        y = self.position.y + (self.looking.x - self.position.x)*math.sin(-theta) + (self.looking.y - self.position.y)*math.cos(-theta)
+        x = self.position.x + (self.look_length)*math.cos(self.theta-theta_offset)
+        y = self.position.y + (self.look_length)*math.sin(self.theta-theta_offset)
         l = Line(self.position, Point(x,y))
         l.setFill(self.color)
         return l
 
     def get_fire(self):
-        l = Line(self.position, self.looking)
+        l = Line(self.position, Point(self.position.x + (self.look_length)*math.cos(self.theta), self.position.y + (self.look_length)*math.sin(self.theta)))
         l.setFill("orange")
         return l
 
