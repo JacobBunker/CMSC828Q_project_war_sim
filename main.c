@@ -10,7 +10,8 @@
 #define NUM_RIGID_BODIES 2
 #define TOLERANCE 0.00001
 #define WALL_WIDTH 2.0
-#define SEED 40
+#define SEED 41
+#define PI 3.14159265
 // the tolerance should be something positive close to zero (ex. 0.00001)
 
 //see https://www.toptal.com/game/video-game-physics-part-i-an-introduction-to-rigid-body-dynamics
@@ -150,32 +151,12 @@ int touching_wall_upper(float c, float r, float size){
 	return (c+r > size-WALL_WIDTH);
 }
 
-void GenerateMap(float size, int spawns, float spawn_radius, float density, Map *map)
-{
-	map->spawn_count = spawns;
-	map->obstacle_count = density;
-	map->spawn_radius = spawn_radius;
-	map->spawns = malloc(spawns * sizeof(char*));
-	map->obstacles = malloc((4 + density) * sizeof(char *));
-	GenerateWalls(size, map);
+void GenerateSpawns(int spawns, float spawn_radius, float size, Map *map){
 	int i = 0;
-	srand(SEED);
 	while (i < spawns)
 	{
-		float x = (float)rand() / (float)(RAND_MAX / size);
-		float y = (float)rand() / (float)(RAND_MAX / size);
-		if(touching_wall_lower(x, spawn_radius, size)){
-			x += WALL_WIDTH;
-		}
-		else if(touching_wall_upper(x, spawn_radius, size)){
-			x -= WALL_WIDTH;
-		}
-		if(touching_wall_lower(y, spawn_radius, size)){
-			y += WALL_WIDTH;
-		}
-		else if(touching_wall_upper(y, spawn_radius, size)){
-			y -= WALL_WIDTH;
-		}
+		float x = WALL_WIDTH + spawn_radius + (float)rand() / (float)(RAND_MAX / (size-2*(WALL_WIDTH+spawn_radius)));
+		float y = WALL_WIDTH + spawn_radius + (float)rand() / (float)(RAND_MAX / (size-2*(WALL_WIDTH+spawn_radius)));
 		int j = 0;
 		int touching = 0;
 		while(j<i && !touching){
@@ -189,6 +170,59 @@ void GenerateMap(float size, int spawns, float spawn_radius, float density, Map 
 			i += 1;
 		}
 	}
+}
+
+void GenerateObstacle(float size, float spawn_radius, int spawns, int i, Map *map){
+	int found = 0;
+	while(!found){
+		float r = WALL_WIDTH/2 + (float)rand() / (float)(RAND_MAX / (WALL_WIDTH/2));
+		float x = r + WALL_WIDTH + (float)rand() / (float)(RAND_MAX / (size-2*(WALL_WIDTH+r)));
+		float y = r + WALL_WIDTH + (float)rand() / (float)(RAND_MAX / (size-2*(WALL_WIDTH+r)));
+		int j = 0;
+		int touching = 0;
+		while(j<spawns && !touching){
+			touching = touching || touching_circles(x,y, map->spawns[j]->x, map->spawns[j]->y, r, spawn_radius);
+			j+= 1;
+		}
+		if (!touching){
+			map->obstacles[i] = malloc(sizeof(Obstacle));
+			int points = 3 + (int) rand()/ (int)(RAND_MAX/4);
+			map->obstacles[i]->points = malloc(points * sizeof(char *));
+			float alpha = 0.0;
+			for(int k = 0; k < points; k++){
+				map->obstacles[i]->points[k] = malloc(sizeof(Vector2));
+				map->obstacles[i]->points[k]->x = x + r*cos(alpha);
+				map->obstacles[i]->points[k]->y = y + r*sin(alpha);
+				alpha = alpha + ((float)rand() / (float)(RAND_MAX / (2.0*PI-alpha- PI/12)));
+			}
+			map->obstacles[i]->point_number = points;
+			found = 1;
+		}
+	}
+}
+
+void GenerateObstacles(float size, float spawn_radius, int density, int spawns, Map *map){
+	for(int i = 4; i < density+4; i++){
+		GenerateObstacle(size, spawn_radius, spawns, i, map);
+		
+	}
+}
+
+
+
+void GenerateMap(float size, int spawns, float spawn_radius, int density, Map *map)
+{
+	map->spawn_count = spawns;
+	map->obstacle_count = density + 4;
+	map->spawn_radius = spawn_radius;
+	map->spawns = malloc(spawns * sizeof(char*));
+	map->obstacles = malloc((4 + density) * sizeof(char *));
+	srand(SEED);
+	GenerateWalls(size, map);
+	GenerateSpawns(spawns, spawn_radius, size, map);
+	GenerateObstacles(size, spawn_radius, density, spawns, map);
+	
+
 }
 
 // Calculates the inertia of a box shape and stores it in the momentOfInertia variable.
@@ -821,11 +855,11 @@ int main(int argc, const char *argv[])
 	Map *map = malloc(sizeof(Map));
 	int spawns = 5;
 	float rad = 1.1;
-	GenerateMap(20.0, spawns, rad, 0, map);
+	GenerateMap(20.0, spawns, rad, 25, map);
 	FILE *fp;
-	fp = fopen("/home/jack/828/war_sim/positions.txt", "a");
-	for(int i = 0; i < 4; i++){
-		for(int j = 0; j< 4; j++){
+	fp = fopen("/home/jack/828/war_sim/positions.txt", "w");
+	for(int i = 0; i < map->obstacle_count ; i++){
+		for(int j = 0; j<  map->obstacles[i]->point_number; j++){
 			fprintf(fp, "b %.2f %.2f\n", map->obstacles[i]->points[j]->x, map->obstacles[i]->points[j]->y);
 		}
 		fprintf(fp, "e\n");
