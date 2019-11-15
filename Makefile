@@ -9,7 +9,7 @@ OBJ = $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 CPPFLAGS += -Iinclude
 CFLAGS += -Wall
 LDFLAGS += -Llib
-LDLIBS += -lchipmunk -lbsd -lm
+LDLIBS += -lchipmunk -lglfw3 -lGLEW -lbsd -lm -lGL -lGLU -lglut -lX11 -lpthread -ldl
 
 .PHONY: all clean
 

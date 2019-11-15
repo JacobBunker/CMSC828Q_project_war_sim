@@ -6,7 +6,6 @@
 #include <math.h>
 #include <time.h>
 #include <string.h>
-#include "rigid_body_sim.h"  
 #include "GA.h"
 #include "neuralnet.h"
 
@@ -164,53 +163,6 @@ void GA_free(GA* ga){
   free(ga);
   
 }
-
-void race(GA *ga,int Ngame){
-  int sizeA=ga->MAX_NEURON*ga->MAX_NEURON*sizeof(int);
-  int sizeW=ga->MAX_NEURON*ga->MAX_NEURON*sizeof(long double);
-  int sizea=ga->MAX_NEURON*2*sizeof(long double);
-  neuralnet **players=malloc(4*(sizeof(neuralnet)+sizeA+sizea+sizeW)) ;
-  assert(ga->n%4==0);
-  int schedule[ga->n];
-  //  long double fit_change[ga->n];
-  int outcome;
-  ga->Nimproved_fit=0;
-  for (int i=0;i<ga->n;++i){
-    ga->copy_fit[i]=0;
-  }
-  for(int i=0;i<Ngame;++i){
-    permute(schedule,ga->n);
-    for(int j=0;j<ga->n/4;++j){
-      for(int ii=0;ii<4;++ii){
-	       players[ii]=ga->pop[schedule[2*j+ii]];
-      }
-      outcome=RunRigidBodySimulation(players,0);
-
-      if(outcome!=4){
-        ga->copy_fit[schedule[2*j+outcome]]+=10;
-        for(int iii=0;iii<4;++iii){
-          ga->copy_fit[schedule[2*j+iii]]-=1;
-        }
-      }
-    }
-  }
-  for (int i=0;i<ga->n;++i){
-    /* printf("old fit : %LF , newfit : %LF\n",ga->fit_array[i],ga->copy_fit[i]); */
-    switch(ga->copy_fit[i]>ga->fit_array[i]){
-    case 1:
-      ++ga->Nimproved_fit;
-      break;
-    }
-  }
-  /* printf("Nimproved %d\n",ga->Nimproved_fit); */
-  
-  memcpy(ga->fit_array,ga->copy_fit,ga->n*sizeof(long double));
-  /* for (int i=0;i<ga->n;++i){ */
-  /*   /\* printf("Again old fit : %LF , newfit : %LF\n",ga->fit_array[i],ga->copy_fit[i]); *\/ */
-  /*   } */
-  free(players);
-}
-
 
 void out_fit(FILE * file, GA *ga){ 
   for(int i=0;i<ga->n;++i){

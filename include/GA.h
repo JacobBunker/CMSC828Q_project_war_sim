@@ -2,7 +2,7 @@
 #define GA_H
 #include "arrays.h"
 #include "neuralnet.h"
-#include "rigid_body_sim.h"
+
 typedef struct GA{
   int n; // Pop size
   int MAX_NEURON,MAX_LINKS,Ninput,Noutput;
