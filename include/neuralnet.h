@@ -17,7 +17,8 @@ typedef struct neuralnet{
   int cur,old;
 }neuralnet;
 
-neuralnet* neuralnet_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS); 
+neuralnet* neuralnet_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS);
+neuralnet* neuralnet_full_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS);
 void neuralnet_free(neuralnet* nn);
 neuralnet * neuralnet_copy(neuralnet *nn); 
 

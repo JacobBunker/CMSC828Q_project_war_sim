@@ -1,4 +1,4 @@
-EXE = sim
+EXE = sim test
 
 SRC_DIR = src
 OBJ_DIR = obj

@@ -114,10 +114,10 @@ void InitSim(int player_net_param) {
 	sim.render = 1;
 	sim.time = 0.0;
 	sim.input = malloc(sizeof(float)*N_INPUT);
-	sim.output = malloc(sizeof(float)*N_INPUT);
+	sim.output = malloc(sizeof(float)*N_OUTPUT);
 
 	for(int i=0;i<N_INPUT;++i){sim.input[i]=0.0;}
-	for(int i=0;i<N_INPUT;++i){sim.output[i]=32.0;}
+	for(int i=0;i<N_OUTPUT;++i){sim.output[i]=32.0;}
 }
 
 void FreeSim(SimulationState sim) {
@@ -232,8 +232,8 @@ int main(int argc, char** argv) {
 
 	srand(time(NULL));
 	int popsize=40,
-	MAX_NEURON=100,
-	MAX_LINKS=5000,
+	MAX_NEURON=20,
+	MAX_LINKS=200,
 	Ngame=5,
 	Learning_time=20;
 

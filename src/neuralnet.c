@@ -8,6 +8,7 @@
 #include "neuralnet.h"
 
 #define SPREAD 1
+
 neuralnet* neuralnet_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
   /*This functions instanciates the struct neuralnet.It defines the numberof inputs and outputs and  initializes the weight matrix (W), adjancy matrix(A) and  inital activations (a) at random.*/
   int indA,indW,Notyet;
@@ -50,20 +51,23 @@ neuralnet* neuralnet_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
 
   // Link_control is the max number of links created at init
   // it is random, but has to allow for enough bias links
-  int Link_control=fmin(nn->MAX_NEURON,rand()%(nn->Nneuron*nn->Nneuron-nn->Noutput)+nn->Noutput);
+  int Link_control=fmin(nn->MAX_LINKS,rand()%((nn->Nneuron*nn->Nneuron)-nn->Nneuron));
   Link_control=fmax(Link_control,nn->Noutput);
-  while(nn->Nlinks<Link_control){      
-    Notyet=1;
-    for(int i=nn->Nneuron-nn->Noutput;i<nn->Nneuron;++i){
-      // Loop for bias weights
-      indA=array3d_int_index(nn->A,i,nn->Ninput,0);
-      nn->A->array[indA]=1;
-      indW=array3d_double_index(nn->W,i,nn->Ninput,0);
-      nn->W->array[indW]=(long double) (100*random())/ INT_MAX -50;
-      ++nn->Nlinks;
-    }
+  long double temp;
+  
+  Notyet=1;
+  for(int i=nn->Nneuron-nn->Noutput;i<nn->Nneuron;++i){
+    // Loop for bias weights
+    indA=array3d_int_index(nn->A,i,nn->Ninput,0);
+    nn->A->array[indA]=1;
+    indW=array3d_double_index(nn->W,i,nn->Ninput,0);
+    temp=(long double) (SPREAD*random())/ INT_MAX -SPREAD/2;
+    nn->W->array[indW]=temp;
+    ++nn->Nlinks;
+  }
 
-      
+  while(nn->Nlinks<Link_control){
+    Notyet=1;
     while(Notyet){
       // Loop that initiate weights at random.
       a=0,b=0;
@@ -76,15 +80,71 @@ neuralnet* neuralnet_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
       if(nn->A->array[indA]==0){
 	nn->A->array[indA]=1;
 	indW=array3d_double_index(nn->W,a,b,0);
-	nn->W->array[indW]=(long double) (SPREAD*random())/ INT_MAX -SPREAD/2;
+	temp=(long double) (SPREAD*random())/ INT_MAX -SPREAD/2;
+	nn->W->array[indW]=temp;
 	++nn->Nlinks;
 	Notyet=0;
       }
     }
   }
+  
   return nn;
   
 }
+
+
+
+neuralnet* neuralnet_full_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
+  /*This functions instanciates the struct neuralnet.It defines the numberof inputs and outputs and  initializes the weight matrix (W), adjancy matrix(A) and  inital activations (a) at random.*/
+  int indA,indW;
+  assert(Ninput+Noutput+1<MAX_NEURON && MAX_LINKS<MAX_NEURON*MAX_NEURON+1 &&MAX_LINKS>Noutput); 
+  
+  int Nhidden=MAX_NEURON-Ninput-Noutput,
+    sizeA=MAX_NEURON*MAX_NEURON*sizeof(int),
+    sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double),
+    sizea=MAX_NEURON*2*sizeof(long double);
+  
+  neuralnet* nn=malloc(sizeof(neuralnet)+sizeA+sizeW+sizea);
+  
+  if((nn = (neuralnet *) malloc(BUFSIZ)) == NULL) {
+    printf("malloc error in neuralnet neuralnet_nit");
+    return 0;
+  }
+
+  nn->A=array3d_int_init(MAX_NEURON,MAX_NEURON,1);
+  nn->W=array3d_double_init(MAX_NEURON,MAX_NEURON,1);
+  nn->a=array3d_double_init(MAX_NEURON,2,1);
+  
+  nn->t=0;
+  nn->old=0;
+  nn->cur=1;
+
+  nn->MAX_NEURON=MAX_NEURON;
+  nn->MAX_LINKS=MAX_LINKS;
+  nn->Nhidden=Nhidden;
+  nn->Ninput=Ninput;
+  nn->Noutput=Noutput;
+  nn->Nneuron=Ninput+Noutput+Nhidden;
+  nn->Nlinks=0;
+  /* Next loop initialises A and W
+
+     weights are chosen uniformly in [-10,10]*/
+
+  for(int i=0;i<nn->Nneuron;++i){
+    for(int j=0;j<nn->Nneuron;++j){
+      indA=array3d_int_index(nn->A,i,j,0);
+      nn->A->array[indA]=1;
+      indW=array3d_double_index(nn->W,i,j,0);
+      nn->W->array[indW]=(long double) (SPREAD*random())/ INT_MAX -SPREAD/2;
+      ++nn->Nlinks;
+    }
+  }
+
+      
+  return nn;
+  
+}
+
 
 
 
