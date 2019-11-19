@@ -88,7 +88,7 @@ void  array3d_double_show(array3d_double *arr){
 
 
 
-void index_sort(long double *output, int * index){
+void index_sort(long double *output, int * index, int size){
   int cmp_ind(const void *i, const void *j)
   {
     const int fi = *(const int *) i;
@@ -114,7 +114,7 @@ void index_sort(long double *output, int * index){
     return 0;
   }
 
-  qsort(index,9,sizeof(int),cmp_ind);
+  qsort(index,size,sizeof(int),cmp_ind);
 }
 
 
@@ -156,7 +156,7 @@ array3d_double * array3d_double_copy(array3d_double * orig){
 
 void array3d_double_replace(array3d_double * destination,array3d_double *source){
   assert(destination->dim1==source->dim1 && destination->dim2==source->dim2 && destination->dim3==source->dim3);
-    int size_dest=destination->dim1*destination->dim2*destination->dim3*sizeof(long double);
+    int size_dest=destination->dim1 * destination->dim2 * destination->dim3 * sizeof(long double);
     memcpy(destination->array,source->array,size_dest);
 }
 

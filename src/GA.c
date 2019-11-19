@@ -9,6 +9,10 @@
 #include "GA.h"
 #include "neuralnet.h"
 
+#define ELITISM 10
+#define SIGMA_VALUE 0.99
+#define SIGMA_FLOOR 0.18
+
 GA * GA_init(int n,int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
   int sizeA=MAX_NEURON*MAX_NEURON*sizeof(int);
   int sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double);
@@ -33,7 +37,7 @@ GA * GA_init(int n,int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
   ga->fit_array=malloc(sizefit);
   ga->copy_fit=malloc(sizefit);
   ga->sigma=malloc(sizesig);
-  ga->c=0.85;
+  ga->c=SIGMA_VALUE;
   
   for(int i=0;i<n;++i){
     ga->pop[i]=neuralnet_init(Ninput,Noutput,MAX_NEURON,MAX_LINKS);
@@ -63,7 +67,7 @@ void permute(int* per,int n){
 
 void mutate_sigma(GA* ga){
   //printf("sw %d\n",ga->Nimproved_fit>ga->n/4.0);
-  switch(ga->Nimproved_fit>ga->n/2.0){
+  switch(ga->Nimproved_fit>ga->n/5.0){
   case 1:
     for(int i=0;i<ga->n;++i){
       /* printf("case 1 old sig %f",ga->sigma[i]); */
@@ -75,6 +79,7 @@ void mutate_sigma(GA* ga){
     for(int i=0;i<ga->n;++i){
       /* printf("case 0 old sig %f",ga->sigma[i]);  */
       ga->sigma[i]*=ga->c;
+      ga->sigma[i] = fmax(ga->sigma[i], SIGMA_FLOOR);
       /* printf(" new sig %f\n",ga->sigma[i]); */
     }
     break;
@@ -90,6 +95,16 @@ int max_fit(GA *ga){
   }
   return max;
 }
+
+int n_best(GA *ga, int n) {
+  int parents[ga->n]; //array keeping indices of chosen parents 
+  for(int i=0;i<ga->n;++i){
+    parents[i]=i;
+  }
+  index_sort(ga->fit_array,parents,ga->n);
+  return parents[n];
+}
+
 void tournament_selection(GA* ga){
   /*
     replace ga->pop with new population of same size.
@@ -98,10 +113,17 @@ void tournament_selection(GA* ga){
   */
   int parents[ga->n]; //array keeping indices of chosen parents 
   int par1=0,par2=0;   // random indices
+
   for(int i=0;i<ga->n;++i){
+    parents[i]=i;
+  }
+
+  index_sort(ga->fit_array,parents,ga->n);
+
+  for(int i = ELITISM;i<(ga->n);++i){
     parents[i]=0;
     par1=0;par2=0;
-    while(par1==par2){
+    while(par1==par2) {
       // chose 2 diffent parents at random
       par1=rand()%ga->n;
       par2=rand()%ga->n;
@@ -155,6 +177,7 @@ void GA_free(GA* ga){
     neuralnet_free(ga->pop[i]);
     neuralnet_free(ga->copy_pop[i]);
   }
+
   free(ga->fit_array);
   free(ga->copy_fit);
   free(ga->sigma);

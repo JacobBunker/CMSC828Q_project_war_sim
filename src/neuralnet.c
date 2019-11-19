@@ -311,17 +311,24 @@ long double randn (double mu, double sigma)
 }
 
 void neuralnet_free(neuralnet* nn ){
+  //printf("nn->a->array\t\t\t%p\n", &nn->a->array);
   free(nn->a->array);
   nn->a->array=NULL;
+  //printf("nn->a\t\t\t%p\n", &nn->a);
   free(nn->a);
 
+  //printf("nn->W->array\t\t\t%p\n", &nn->W->array);
   free(nn->W->array);
   nn->W->array=NULL;
+  //printf("nn->W\t\t\t%p\n", &nn->W);
   free(nn->W);
 
+  //printf("nn->A->array\t\t\t%p\n", &nn->A->array);
   free(nn->A->array);
   nn->A->array=NULL;
+  //printf("nn->A\t\t\t%p\n", &nn->A);
   free(nn->A); 
+  //printf("nn\t\t\t%p\n", &nn);
   free(nn);
 
 }

@@ -20,6 +20,7 @@ GA * GA_init(int n,int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS);
 void permute(int* per,int n); 
 void match(GA *ga,int Ngame);
 int max_fit(GA *ga);
+int n_best(GA *ga, int n);
 void tournament_selection(GA* ga);
 void mutate_sigma(GA*ga);
 void GA_mutate_weights(GA *ga,double pm);

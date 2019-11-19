@@ -15,6 +15,7 @@ typedef struct {
 	int obstacle_number;
 	int *obstacle_vertices_count;
 	float *raw_obstacle_vertices;
+	float force_multiplier;
 
 	cpFloat timeStep;
 	cpFloat arena_time_max;
