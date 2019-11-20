@@ -10,8 +10,9 @@
 #include "neuralnet.h"
 
 #define ELITISM 10
-#define SIGMA_VALUE 0.99
-#define SIGMA_FLOOR 0.18
+#define SIGMA_VALUE 0.98
+#define SIGMA_FLOOR 1.91
+#define SIGMA_CIELING 10.0
 
 GA * GA_init(int n,int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
   int sizeA=MAX_NEURON*MAX_NEURON*sizeof(int);
@@ -72,6 +73,7 @@ void mutate_sigma(GA* ga){
     for(int i=0;i<ga->n;++i){
       /* printf("case 1 old sig %f",ga->sigma[i]); */
       ga->sigma[i]*=1/ga->c;
+      ga->sigma[i] = fmin(ga->sigma[i], SIGMA_CIELING);
       /* printf(" new sig %f\n",ga->sigma[i]); */
     }
     break;

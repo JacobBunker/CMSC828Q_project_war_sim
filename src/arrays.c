@@ -34,7 +34,7 @@ array3d_int* array3d_int_init(int dim1,int dim2,int dim3){
 
 int array3d_int_index(array3d_int *arr,int i,int j,int k){
   assert(i<arr->dim1 && j<arr->dim2 && k<arr->dim3);
-  return arr->dim2*i +j +k*arr->dim2*arr->dim1;
+  return i+j*arr->dim1 + k*arr->dim2*arr->dim1;//arr->dim2*i +j +k*arr->dim2*arr->dim1;
 }
 
 void array3d_int_show(array3d_int *arr){
@@ -70,7 +70,7 @@ void array3d_int_show(array3d_int *arr){
 
 int array3d_double_index(array3d_double *arr,int i,int j,int k){
   assert(i<arr->dim1 && j<arr->dim2 && k<arr->dim3);
-  return arr->dim2*i +j +k*arr->dim2*arr->dim1;
+  return i+j*arr->dim1 + k*arr->dim2*arr->dim1;
 }
 
 void  array3d_double_show(array3d_double *arr){

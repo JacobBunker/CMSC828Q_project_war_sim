@@ -184,7 +184,7 @@ void compute_act(neuralnet *nn){
       temp+=(nn->A->array[indA])*(nn->W->array[indW])*(nn->a->array[indaold]);
     }
     
-    nn->a->array[indacur]=tanh(0.1*temp);
+    nn->a->array[indacur]=tanh(0.05*temp);
      
   }
   inda=array3d_double_index(nn->a,nn->Ninput,nn->cur,0);
