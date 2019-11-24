@@ -8,26 +8,19 @@
 #include <string.h>
 #include "GA.h"
 #include "neuralnet.h"
-
-#define ELITISM 10
-#define SIGMA_VALUE 0.98
-#define SIGMA_FLOOR 1.91
-#define SIGMA_CIELING 10.0
+#define elitism 1
 
 GA * GA_init(int n,int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
   int sizeA=MAX_NEURON*MAX_NEURON*sizeof(int);
   int sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double);
   int sizea=MAX_NEURON*2*sizeof(long double);
-  int sizefit=n*sizeof(long double);
-  int sizesig=n*sizeof(double);
+  int sizetable=MAX_NEURON*sizeof(long double);
   
-  GA*ga=malloc(2*n*(sizeof(neuralnet)+sizeA+sizeW+sizea)+2*sizefit+sizesig+sizeof(GA));
-  if((ga = (GA *) malloc(BUFSIZ)) == NULL) {
-    printf("malloc error in GA_init");
-    return 0;
-  }
+  int sizefit=n*sizeof(float);
+  int sizesig=n*sizeof(float);
+  
+  GA*ga=malloc(2*n*(sizeof(neuralnet)+sizeA+sizeW+sizea+sizetable)+2*sizefit+sizesig+sizeof(GA));
 
-  assert(!(n%2));
   ga->pop=malloc(n*(sizeof(neuralnet)+sizeA+sizeW+sizea));
   ga->copy_pop=malloc(n*(sizeof(neuralnet)+sizeA+sizeW+sizea));
   ga->n=n; 
@@ -38,7 +31,7 @@ GA * GA_init(int n,int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
   ga->fit_array=malloc(sizefit);
   ga->copy_fit=malloc(sizefit);
   ga->sigma=malloc(sizesig);
-  ga->c=SIGMA_VALUE;
+  ga->c=0.85;
   
   for(int i=0;i<n;++i){
     ga->pop[i]=neuralnet_init(Ninput,Noutput,MAX_NEURON,MAX_LINKS);
@@ -68,12 +61,11 @@ void permute(int* per,int n){
 
 void mutate_sigma(GA* ga){
   //printf("sw %d\n",ga->Nimproved_fit>ga->n/4.0);
-  switch(ga->Nimproved_fit>ga->n/5.0){
+  switch(ga->Nimproved_fit>ga->n/2.0){
   case 1:
     for(int i=0;i<ga->n;++i){
       /* printf("case 1 old sig %f",ga->sigma[i]); */
       ga->sigma[i]*=1/ga->c;
-      ga->sigma[i] = fmin(ga->sigma[i], SIGMA_CIELING);
       /* printf(" new sig %f\n",ga->sigma[i]); */
     }
     break;
@@ -81,7 +73,6 @@ void mutate_sigma(GA* ga){
     for(int i=0;i<ga->n;++i){
       /* printf("case 0 old sig %f",ga->sigma[i]);  */
       ga->sigma[i]*=ga->c;
-      ga->sigma[i] = fmax(ga->sigma[i], SIGMA_FLOOR);
       /* printf(" new sig %f\n",ga->sigma[i]); */
     }
     break;
@@ -97,16 +88,6 @@ int max_fit(GA *ga){
   }
   return max;
 }
-
-int n_best(GA *ga, int n) {
-  int parents[ga->n]; //array keeping indices of chosen parents 
-  for(int i=0;i<ga->n;++i){
-    parents[i]=i;
-  }
-  index_sort(ga->fit_array,parents,ga->n);
-  return parents[n];
-}
-
 void tournament_selection(GA* ga){
   /*
     replace ga->pop with new population of same size.
@@ -115,17 +96,16 @@ void tournament_selection(GA* ga){
   */
   int parents[ga->n]; //array keeping indices of chosen parents 
   int par1=0,par2=0;   // random indices
-
+  
   for(int i=0;i<ga->n;++i){
     parents[i]=i;
   }
-
-  index_sort(ga->fit_array,parents,ga->n);
-
-  for(int i = ELITISM;i<(ga->n);++i){
+ 
+  index_sort_dcr(ga->fit_array,parents,ga->n);
+  for(int i=elitism;i<ga->n;++i){
     parents[i]=0;
     par1=0;par2=0;
-    while(par1==par2) {
+    while(par1==par2){
       // chose 2 diffent parents at random
       par1=rand()%ga->n;
       par2=rand()%ga->n;
@@ -141,37 +121,49 @@ void tournament_selection(GA* ga){
     }
   }
   value_sort(ga->n,parents); // sorts parents indices in increasing order
-  //------------------------------------------------------------------
+ 
+//------------------------------------------------------------------
   // copy all chrom selected in copy_pop to be copied back later in pop
-  neuralnet_replace(ga->copy_pop[parents[0]],ga->pop[parents[0]]);
-  for(int i=1;i<ga->n;++i){
+  neuralnet_replace(ga->copy_pop[parents[elitism]],ga->pop[parents[elitism]]);
+  for(int i=elitism;i<ga->n;++i){
     if(parents[i]!=parents[i-1]){   // Test for unnecessary copying 
       neuralnet_replace(ga->copy_pop[parents[i]],ga->pop[parents[i]]);
     }
   }
   //------------------------------------------------------------------
 
-  for(int i=1;i<ga->n;++i){
-    neuralnet_replace(ga->pop[i],ga->copy_pop[parents[i]]); // replace pop 
-    ga->fit_array[i]=ga->copy_fit[parents[i]];         // replace fitness
-  }
-  //  ga->fit_avg*=1/ga->n;	    
+  /* for(int i=elitism;i<ga->n;++i){ */
+  /*   neuralnet_replace(ga->pop[elitism],ga->copy_pop[parents[elitism]]); // replace pop  */
+  /*   ga->fit_array[elitism]=ga->copy_fit[parents[elitism]];         // replace fitness */
+  /* }  index */
+  /* //  ga->fit_avg*=1/ga->n; */
+  /* for(int i=0;i<ga->n;++i){ */
+  /*   parents[i]=i;// */
+  /* } */
+
+  
 }    
 
+int n_best(GA *ga, int n) {
+ int parents[ga->n]; //array keeping indices of chosen parents
+ for(int i=0;i<ga->n;++i){
+   parents[i]=i;
+ }
+ index_sort_dcr(ga->fit_array,parents,ga->n);
+ return parents[n];
+}
 
-
-void GA_mutate_weights(GA *ga,double pm){
+void GA_mutate_weights(GA *ga,float pm){
   assert(0<pm && pm<1);
   for(int i=0;i<ga->n;++i){
     if(rand_double()<pm){
       mutate_weights(ga->pop[i],ga->sigma[i]);
     }
   }
-
 }
 
 double rand_double() {
-  return rand()/(double)RAND_MAX;
+  return rand()/(float)RAND_MAX;
 }
 
 void GA_free(GA* ga){
@@ -179,7 +171,6 @@ void GA_free(GA* ga){
     neuralnet_free(ga->pop[i]);
     neuralnet_free(ga->copy_pop[i]);
   }
-
   free(ga->fit_array);
   free(ga->copy_fit);
   free(ga->sigma);
@@ -191,7 +182,7 @@ void GA_free(GA* ga){
 
 void out_fit(FILE * file, GA *ga){ 
   for(int i=0;i<ga->n;++i){
-    fprintf(file,"%05.2LF ",ga->fit_array[i]);    
+    fprintf(file,"%05.2f ",ga->fit_array[i]);    
   }
   fprintf(file,"\n");
 }

@@ -2,7 +2,8 @@
 #define maze_simulator_H
 
 typedef struct {
-	GA *ga;
+  // change GA *ga;
+        Brain_GA *ga;
 	int team;
 	int size;
 	int *schedule;
@@ -25,7 +26,7 @@ typedef struct {
 typedef struct {
 	int id;
 	int team;
-	neuralnet *brain;
+	brain *br;
 	float score;
 	float prev_look;
 	float prev_shoot;
@@ -78,3 +79,4 @@ typedef struct {
 } SimulationState;
 
 #endif
+

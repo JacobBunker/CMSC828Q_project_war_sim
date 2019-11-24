@@ -6,14 +6,10 @@
 #include <math.h>
 #include <time.h>
 #include "arrays.h"
-
+#define DEBUG_IND 0
 
 array3d_int* array3d_int_init(int dim1,int dim2,int dim3){
   array3d_int *arr=malloc(sizeof(int)*(dim1*dim2*dim3)+sizeof(array3d_int));
-  if((arr = (array3d_int *) malloc(BUFSIZ)) == NULL) {
-      printf("malloc error in array3d_int_Init");
-      return 0;
-    }
 
   arr->dim1=dim1;
   arr->dim2=dim2;
@@ -33,8 +29,10 @@ array3d_int* array3d_int_init(int dim1,int dim2,int dim3){
 }
 
 int array3d_int_index(array3d_int *arr,int i,int j,int k){
-  assert(i<arr->dim1 && j<arr->dim2 && k<arr->dim3);
-  return i+j*arr->dim1 + k*arr->dim2*arr->dim1;//arr->dim2*i +j +k*arr->dim2*arr->dim1;
+  if(DEBUG_IND){
+    printf("INT i %d dim1 %d j %d dim2 %d k %d dim3 %d \n",i,arr->dim1,j,arr->dim2,k,arr->dim3);}
+  assert((i<arr->dim1) && (j<arr->dim2) && (k<arr->dim3));
+  return i +j*arr->dim1 +k*arr->dim2*arr->dim1;
 }
 
 void array3d_int_show(array3d_int *arr){
@@ -53,10 +51,6 @@ void array3d_int_show(array3d_int *arr){
 
  array3d_double* array3d_double_init(int dim1,int dim2,int dim3){
    array3d_double *arr=malloc(sizeof(long double)*(dim1*dim2*dim3)+sizeof(array3d_double));
-   if((arr = (array3d_double *) malloc(BUFSIZ)) == NULL) {
-       printf("malloc error in array3d_double_Init");
-       return 0;
-     }
   arr->dim1=dim1;
   arr->dim2=dim2;
   arr->dim3=dim3;
@@ -69,8 +63,10 @@ void array3d_int_show(array3d_int *arr){
 }
 
 int array3d_double_index(array3d_double *arr,int i,int j,int k){
+    if(DEBUG_IND){
+    printf("Double i %d dim1 %d j %d dim2 %d k %d dim3 %d \n",i,arr->dim1,j,arr->dim2,k,arr->dim3);}
   assert(i<arr->dim1 && j<arr->dim2 && k<arr->dim3);
-  return i+j*arr->dim1 + k*arr->dim2*arr->dim1;
+  return i +j*arr->dim1 +k*arr->dim2*arr->dim1;
 }
 
 void  array3d_double_show(array3d_double *arr){
@@ -79,7 +75,7 @@ void  array3d_double_show(array3d_double *arr){
     for(int i=0;i<arr->dim1;++i){
       for(int j=0;j<arr->dim2;++j){
 	       ind=array3d_double_index(arr,i,j,k);
-	       printf(" %LF ",arr->array[ind]);
+	       printf(" %.2LF ",arr->array[ind]);
       }
       printf("\n");
     }
@@ -88,13 +84,13 @@ void  array3d_double_show(array3d_double *arr){
 
 
 
-void index_sort(long double *output, int * index, int size){
+void index_sort(float *output, int * index,int size){
   int cmp_ind(const void *i, const void *j)
   {
     const int fi = *(const int *) i;
     const int fj = *(const int *) j;
-    const long double fa = output[fi];
-    const long double fb = output[fj];
+    const float fa = output[fi];
+    const float fb = output[fj];
     if (isnan(fa))
       {
         if (isnan(fb))
@@ -109,6 +105,36 @@ void index_sort(long double *output, int * index, int size){
       }
     if (fa > fb) return -1;
     if (fa < fb) return 1;
+
+    /* no more comparisons needed */
+    return 0;
+  }
+
+  qsort(index,size,sizeof(int),cmp_ind);
+}
+
+void index_sort_dcr(float *output, int * index,int size){
+  // Sorts index by increasing order of output[index]
+  int cmp_ind(const void *i, const void *j)
+  {
+    const int fi = *(const int *) i;
+    const int fj = *(const int *) j;
+    const float fa = output[fi];
+    const float fb = output[fj];
+    if (isnan(fa))
+      {
+        if (isnan(fb))
+	  {
+            return 0;
+	  }
+        return -1;
+      }
+    if (isnan(fb))
+      {
+        return 1;
+      }
+    if (fa > fb) return 1;
+    if (fa < fb) return -1;
 
     /* no more comparisons needed */
     return 0;
@@ -156,7 +182,7 @@ array3d_double * array3d_double_copy(array3d_double * orig){
 
 void array3d_double_replace(array3d_double * destination,array3d_double *source){
   assert(destination->dim1==source->dim1 && destination->dim2==source->dim2 && destination->dim3==source->dim3);
-    int size_dest=destination->dim1 * destination->dim2 * destination->dim3 * sizeof(long double);
+    int size_dest=destination->dim1*destination->dim2*destination->dim3*sizeof(long double);
     memcpy(destination->array,source->array,size_dest);
 }
 

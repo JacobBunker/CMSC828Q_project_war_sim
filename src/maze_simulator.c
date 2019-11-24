@@ -20,9 +20,11 @@
 
 #include "neuralnet.h"
 #include "GA.h"
+#include "Brain_GA.h"
+#include "brain.h"
 #include "maze_simulator.h"
 
-#define pi 3.142857 
+#define pi 3.1415926
 
 #define NUM_PLAYERS 16
 #define PLAYERS_PER_TEAM 8
@@ -32,7 +34,7 @@
 #define CHANCE_MUTATION 0.8
 #define AGENT_HEALTH 30.0
 #define AGENT_HIT_REWARD 100.0
-#define MAX_THREADS 12
+#define MAX_THREADS 20
 
 
 #define DEBUG_PRINT 0
@@ -46,19 +48,15 @@ char buffer[64];
 cpVect spawns[NUM_PLAYERS/PLAYERS_PER_TEAM];
 float team_colors[2][3];
 
+int popsize=2*NUM_PLAYERS,
+  nx=5,
+  ny=5,
+  Size_cluster=20,
+  Ncluster_links=100,
+  Ngame=5,
+  Learning_time=3; 
 
-int popsize=64,
-MAX_NEURON=100,
-MAX_LINKS=(100*100)/4,
-Ngame=5,
-Learning_time=2; 
 
-
-/*int popsize=256,
-MAX_NEURON=128,
-MAX_LINKS=(128*128),
-Ngame=5,
-Learning_time=2;  */
 
 
 void InitSim(SimulationState *sim, int player_net_param) {
@@ -119,7 +117,7 @@ void InitSim(SimulationState *sim, int player_net_param) {
 		cpShapeSetUserData(sim->players[i].shape, &(sim->object_infos[i]));
 
 		sim->players[i].id = i;
-		sim->players[i].brain = neuralnet_init(N_INPUT, N_OUTPUT, MAX_NEURON, MAX_LINKS);
+		sim->players[i].br = brain_graph_init(N_INPUT, N_OUTPUT, nx,ny,Size_cluster,Ncluster_links );
 		sim->players[i].score = 0;
 		sim->players[i].prev_look = 0;
 		sim->players[i].prev_shoot = 0;
@@ -204,7 +202,7 @@ void FreeSim(SimulationState *sim) {
 	free(sim->obstacles);
 
 	for(int i=0;i<NUM_PLAYERS;++i){
-		neuralnet_free(sim->players[i].brain);
+		brain_free(sim->players[i].br);
 		free(sim->players[i].shape);
 		free(sim->players[i].body);
 	}
@@ -273,6 +271,7 @@ void ResetSim(SimulationState *sim) {
 		sim->players[i].prev_shoot = 0.0;
 		sim->players[i].score = 0.0;
 		sim->players[i].health = AGENT_HEALTH;
+		brain_reset_act(sim->players[i].br);
 	}
 }
 
@@ -308,7 +307,7 @@ void StepSim(SimulationState *sim, int graphics_on) {
 
 			sim->input[4*(sim->look_number*2)] = sim->players[current_player].prev_shoot;
 
-			float_forward_pass(sim->players[current_player].brain,sim->input,sim->output);
+			brain_forward_pass(sim->players[current_player].br,sim->input,sim->output);
 			//printf("outputs: %.2f, %.2f\n", output[0], output[1]);
 			sim->vel.x = sim->force_multiplier*sim->output[0];
 			sim->vel.y = sim->force_multiplier*sim->output[1];
@@ -428,7 +427,7 @@ int main(int argc, char** argv) {
 
   	/* NEURAL NETWORK INITIALIZATION */
 	float high_score = -1000.0;
-	printf("popsize: %d, MAX_NEURON: %d, MAX_LINKS: %d, Ngame: %d, Learning_time: %d\n", popsize, MAX_NEURON, MAX_LINKS, Ngame, Learning_time);
+	/* printf("popsize: %d, MAX_NEURON: %d, MAX_LINKS: %d, Ngame: %d, Learning_time: %d\n", popsize, MAX_NEURON, MAX_LINKS, Ngame, Learning_time); */
 	printf("CURRENT HIGH SCORE: %.2f\n", high_score);
 
 	srand(time(NULL));
@@ -437,7 +436,7 @@ int main(int argc, char** argv) {
 
 	Species *animal_kingdom = malloc(sizeof(Species) * num_teams);
 	for(int i = 0; i < num_teams; ++i) {
-		animal_kingdom[i].ga = GA_init(pop_per_team,N_INPUT,N_OUTPUT,MAX_NEURON,MAX_LINKS);
+	  animal_kingdom[i].ga = Brain_GA_graph_init(pop_per_team,N_INPUT,N_OUTPUT,nx,ny,Size_cluster,Ncluster_links);
 		animal_kingdom[i].schedule = malloc(sizeof(int)*animal_kingdom[i].ga->n);
 	}
 
@@ -445,17 +444,15 @@ int main(int argc, char** argv) {
 	ffit=fopen("fit.txt","w");
 	fsig=fopen("sig.txt","w");
 
-	int sizeA=animal_kingdom[0].ga->MAX_NEURON*animal_kingdom[0].ga->MAX_NEURON*sizeof(int);
-	int sizeW=animal_kingdom[0].ga->MAX_NEURON*animal_kingdom[0].ga->MAX_NEURON*sizeof(long double);  
-	int sizea=animal_kingdom[0].ga->MAX_NEURON*2*sizeof(long double); 
+	
 
 	//INITIALIZING THE SIMULATION HERE! 
 	SimulationState sims[MAX_THREADS];
 	for(int t=0;t<MAX_THREADS;++t) {
-		InitSim(&sims[t], sizeA+sizea+sizeW);
+		InitSim(&sims[t], animal_kingdom[0].ga->pop[0]->br_size);
 	}
 
-	InitSim(&render_sim, sizeA+sizea+sizeW);
+	InitSim(&render_sim, animal_kingdom[0].ga->pop[0]->br_size);
 
 	pthread_t threads[MAX_THREADS];
 	void *res;
@@ -486,7 +483,9 @@ int main(int argc, char** argv) {
 						for(int ii=0;ii<num_teams;++ii){
 							for(int tb=0; tb<PLAYERS_PER_TEAM; ++tb) { //go through each team
 								if(DEBUG_THREADS) { printf("\t\tsim %d player %d is getting species %d schedule place %d\n", t, (ii*PLAYERS_PER_TEAM)+tb, ii, (PLAYERS_PER_TEAM*(j+t))+tb); }
-								neuralnet_replace(sims[t].players[(ii*PLAYERS_PER_TEAM)+tb].brain, animal_kingdom[ii].ga->pop[animal_kingdom[ii].schedule[(PLAYERS_PER_TEAM*(j+t))+tb]]);
+
+								brain_replace(sims[t].players[(ii*PLAYERS_PER_TEAM)+tb].br, animal_kingdom[ii].ga->pop[animal_kingdom[ii].schedule[(PLAYERS_PER_TEAM*(j+t))+tb]]);
+
 							}
 						}
 						if(DEBUG_THREADS) { printf("\t\tready\n");}
@@ -494,6 +493,7 @@ int main(int argc, char** argv) {
 					}
 					if(DEBUG_THREADS) { printf("joining threads...\n");}
 					for(int t=0;t<MAX_THREADS;++t) {
+					  
 						pthread_join(threads[t], &res);
 						if(DEBUG_THREADS) { printf("\tthread%d\n",t);}
 						for(int current_team=0; current_team < num_teams; ++current_team) {
@@ -517,8 +517,12 @@ int main(int argc, char** argv) {
 						if(DEBUG_THREADS) { printf("\tthread%d\n",t);}
 						for(int ii=0;ii<num_teams;++ii){
 							for(int tb=0; tb<PLAYERS_PER_TEAM; ++tb) { //go through each team
+
+
 								if(DEBUG_THREADS) { printf("\t\tsim %d player %d is getting species %d schedule place %d\n", t, (ii*PLAYERS_PER_TEAM)+tb, ii, (PLAYERS_PER_TEAM*(j+t))+tb); }
-								neuralnet_replace(sims[t].players[(ii*PLAYERS_PER_TEAM)+tb].brain, animal_kingdom[ii].ga->pop[animal_kingdom[ii].schedule[(PLAYERS_PER_TEAM*(j+t))+tb]]);
+
+								brain_replace(sims[t].players[(ii*PLAYERS_PER_TEAM)+tb].br, animal_kingdom[ii].ga->pop[animal_kingdom[ii].schedule[(PLAYERS_PER_TEAM*(j+t))+tb]]);
+
 							}
 						}
 						pthread_create(&threads[t], NULL, SimulationThread, &sims[t]);
@@ -557,35 +561,37 @@ int main(int argc, char** argv) {
 		}
 
 		for(int ii=0;ii<num_teams;++ii) {
-			memcpy(animal_kingdom[ii].ga->fit_array,animal_kingdom[ii].ga->copy_fit,animal_kingdom[ii].ga->n*sizeof(long double));
-			tournament_selection(animal_kingdom[ii].ga);
-			mutate_sigma(animal_kingdom[ii].ga);
-			GA_mutate_weights(animal_kingdom[ii].ga,CHANCE_MUTATION);
+			memcpy(animal_kingdom[ii].ga->fit_array,animal_kingdom[ii].ga->copy_fit,animal_kingdom[ii].ga->n*sizeof(float));
+			Brain_GA_tournament_selection(animal_kingdom[ii].ga);
+			Brain_GA_mutate_sigma(animal_kingdom[ii].ga);
+			Brain_GA_mutate_weights(animal_kingdom[ii].ga,CHANCE_MUTATION);
+		        Brain_GA_mutate_table(animal_kingdom[ii].ga,CHANCE_MUTATION);
+			
 		}
-		out_fit(ffit,animal_kingdom[0].ga);  
-		out_sig(fsig,animal_kingdom[0].ga);
+		Brain_GA_out_fit(ffit,animal_kingdom[0].ga);  
+		Brain_GA_out_sig(fsig,animal_kingdom[0].ga);
 	}
 
 
   	/*TRAINING DONE*/
 
 	printf("Training done \n\n");
-	neuralnet_write(animal_kingdom[0].ga->pop[max_fit(animal_kingdom[0].ga)]);
+	brain_write(animal_kingdom[0].ga->pop[Brain_GA_max_fit(animal_kingdom[0].ga)]);
 
 	for(int current_team=0; current_team < num_teams; ++current_team) {
 		for(int current_player = 0; current_player < PLAYERS_PER_TEAM; ++current_player) {
-			render_sim.players[(current_team*PLAYERS_PER_TEAM) + current_player].brain = neuralnet_init(N_INPUT,N_OUTPUT,MAX_NEURON,MAX_LINKS);
-			neuralnet_replace(render_sim.players[(current_team*PLAYERS_PER_TEAM) + current_player].brain,animal_kingdom[current_team].ga->pop[n_best(animal_kingdom[current_team].ga, current_player)]);
+		  render_sim.players[(current_team*PLAYERS_PER_TEAM) + current_player].br = brain_graph_init(N_INPUT,N_OUTPUT,nx,ny,Size_cluster,Ncluster_links);
+			brain_replace(render_sim.players[(current_team*PLAYERS_PER_TEAM) + current_player].br,animal_kingdom[current_team].ga->pop[Brain_GA_n_best(animal_kingdom[current_team].ga, current_player)]);
 		}
 	}
 
 	ResetSim(&render_sim);
 	/*clean the training equipment*/
-	out_fit(ffit,animal_kingdom[0].ga);
-	out_sig(fsig,animal_kingdom[0].ga);
+	Brain_GA_out_fit(ffit,animal_kingdom[0].ga);
+	Brain_GA_out_sig(fsig,animal_kingdom[0].ga);
 
 	for(int current_team=0; current_team < num_teams; ++current_team) {
-		GA_free(animal_kingdom[current_team].ga);
+		Brain_GA_free(animal_kingdom[current_team].ga);
 	}
 
 	for(int t=0;t<MAX_THREADS;++t) {
