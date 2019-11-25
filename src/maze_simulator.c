@@ -39,7 +39,7 @@
 
 #define DEBUG_PRINT 0
 #define DEBUG_THREADS 0
-#define DEBUG_RES 0
+#define DEBUG_TIME 0
 
 SimulationState render_sim;
 
@@ -48,13 +48,13 @@ char buffer[64];
 cpVect spawns[NUM_PLAYERS/PLAYERS_PER_TEAM];
 float team_colors[2][3];
 
-int popsize=5*NUM_PLAYERS,
-  nx=10,
-  ny=10,
-  Size_cluster=19,
-  Ncluster_links=200,
+int popsize=4*NUM_PLAYERS,
+  nx=5,
+  ny=5,
+  Size_cluster=20,
+  Ncluster_links=100,
   Ngame=5,
-  Learning_time=5; 
+  Learning_time=3; 
 
 
 
@@ -201,11 +201,10 @@ void FreeSim(SimulationState *sim) {
 	free(sim->obstacle_bodies);
 	free(sim->obstacles);
 
-
 	for(int i=0;i<NUM_PLAYERS;++i){
-	  brain_free(sim->players[i].br);
-	  free(sim->players[i].shape);
-	  free(sim->players[i].body);
+		brain_free(sim->players[i].br);
+		free(sim->players[i].shape);
+		free(sim->players[i].body);
 	}
 
 	free(sim->players);
@@ -276,9 +275,14 @@ void ResetSim(SimulationState *sim) {
 	}
 }
 
-void StepSim(SimulationState *sim, int graphics_on) {
+void StepSim(SimulationState *sim, int graphics_on, double *rec_time) {
+	clock_t times[5]; 
+	if(DEBUG_TIME) { times[0] = clock(); }
+	//clock_t start, post_look, post_forward, post_shoot, end;
 	for(int current_player=0;current_player<NUM_PLAYERS;++current_player) {
 		if(sim->players[current_player].health > 0.0) {
+			if(DEBUG_TIME) { times[1] = clock(); }
+
 			sim->pos = cpBodyGetPosition(sim->players[current_player].body);
 			sim->vel = cpBodyGetVelocity(sim->players[current_player].body);
 
@@ -305,11 +309,16 @@ void StepSim(SimulationState *sim, int graphics_on) {
 					if(graphics_on) { DrawLookLine(sim->pos.x, sim->pos.y, sim->scan_info.point.x, sim->scan_info.point.y); }
 				}
 			}
-
 			sim->input[4*(sim->look_number*2)] = sim->players[current_player].prev_shoot;
-
+			if(DEBUG_TIME) { times[2] = clock(); }
 			brain_forward_pass(sim->players[current_player].br,sim->input,sim->output);
-			//printf("outputs: %.2f, %.2f\n", output[0], output[1]);
+			if(DEBUG_TIME) { times[3] = clock(); }
+			for(int i = 0; i < N_OUTPUT; ++i) {
+				if(isnan(sim->output[i])) {
+					printf("output %d: %.3f\n", i, sim->output[i]);
+				}
+			}			
+
 			sim->vel.x = sim->force_multiplier*sim->output[0];
 			sim->vel.y = sim->force_multiplier*sim->output[1];
 			sim->players[current_player].prev_look = sim->output[2];
@@ -336,25 +345,40 @@ void StepSim(SimulationState *sim, int graphics_on) {
 						if(graphics_on) { DrawShootLine(sim->pos.x, sim->pos.y, sim->scan_info.point.x, sim->scan_info.point.y); }
 				}
 			}
-
+			if(DEBUG_TIME) { 
+				times[4] = clock(); 
+				rec_time[1] += ((double) (times[2] - times[1])) / CLOCKS_PER_SEC;
+				rec_time[2] += ((double) (times[3] - times[2])) / CLOCKS_PER_SEC;
+				rec_time[3] += ((double) (times[4] - times[3])) / CLOCKS_PER_SEC;
+			}
 			cpBodySetForce(sim->players[current_player].body, sim->vel);
 		}
 		else {
 			cpBodySetPosition(sim->players[current_player].body, cpv(-100, -100));
 		}
-			
+		
 	}
+	if(DEBUG_TIME) { times[3] = clock(); }
 	cpSpaceStep(sim->space, sim->timeStep);
+	if(DEBUG_TIME) { times[4] = clock(); 
+		rec_time[0] += ((double) (times[4] - times[0])) / CLOCKS_PER_SEC;
+		rec_time[4] += ((double) (times[4] - times[3])) / CLOCKS_PER_SEC; 
+	}
 }
 
 void display(void)
 {
+	double sim_time_rec[5]; 
+	for(int i = 0; i < 5; ++i) {
+		sim_time_rec[i] = 0.0;
+	}
+
 	glClear(GL_COLOR_BUFFER_BIT);
 	glColor3f(1.0f, 1.0f, 0.0f);
 	//glBegin(GL_LINES);   
 	if(render_sim.time < render_sim.arena_time_max) {
 	
-		StepSim(&render_sim, 1);
+		StepSim(&render_sim, 1, sim_time_rec);
 		render_sim.time += render_sim.timeStep;
 
 		//sleep(sim.timeStep);
@@ -373,6 +397,7 @@ void display(void)
 		glColor3f(0.0f, 1.0f, 0.0f);
 		glPointSize(40.0 * AGENT_SIZE);
 		glBegin(GL_POINTS);
+
 		for(int current_player=0;current_player<NUM_PLAYERS;++current_player) {
 			glColor3f(team_colors[render_sim.players[current_player].team][0],
 					  team_colors[render_sim.players[current_player].team][1],
@@ -380,6 +405,7 @@ void display(void)
 			render_sim.pos = cpBodyGetPosition(render_sim.players[current_player].body);
 			glVertex3f(render_sim.pos.x, render_sim.pos.y, 0.0f);
 		}
+
 		glPointSize(5.0);
 		glColor3f(1.0f, 0.0f, 0.0f);
 		glVertex3f(render_sim.target.x, render_sim.target.y, 0.0f);
@@ -389,26 +415,35 @@ void display(void)
 	} else if(render_sim.render == 1){
 		char *name = "SIMULATION ENDED";
 		glutSetWindowTitle(name);
-		// Clean up our ARENA objects
-		//set up the render_sim arena, get best agents
 		ResetSim(&render_sim);
-		//FreeSim(&render_sim);
-		//render_sim.render = 0;
 	}  
 }
 
 void* SimulationThread(void *arg) {
 	SimulationState *sim = (SimulationState *) arg;
-	float *outcome = malloc(sizeof(float)*NUM_PLAYERS);
+	//NUM_PLAYERS + 0: total time of simulation
+	//NUM_PLAYERS + 1: time performing sensor looks
+	//NUM_PLAYERS + 2: time performing network pass
+	//NUM_PLAYERS + 3: time performing shoot
+	//NUM_PLAYERS + 4: time performing physics space step
 
-	for(int p_i = 0; p_i < NUM_PLAYERS; ++p_i) {
+	//clock_t start, post_look, post_forward, post_shoot, end;
+
+	double sim_time_rec[5]; 
+	for(int i = 0; i < 5; ++i) {
+		sim_time_rec[i] = 0.0;
+	}
+
+	float *outcome = malloc(sizeof(float)*(NUM_PLAYERS + 5)); //+5 is for time keeping slots
+
+	for(int p_i = 0; p_i < NUM_PLAYERS + 5; ++p_i) {
 		outcome[p_i] = 0.0;
 	}
 
 	ResetSim(sim);
 
 	for(cpFloat time = 0; time < sim->arena_time_max; time += sim->timeStep){
-		StepSim(sim, 0);
+		StepSim(sim, 0, sim_time_rec);
 	}
 
 	for(int current_player=0;current_player<NUM_PLAYERS;++current_player) {
@@ -417,14 +452,38 @@ void* SimulationThread(void *arg) {
 		//+ (sim->t_s_dist - sqrt(((sim->pos.x - sim->target.x)*(sim->pos.x - sim->target.x)) + ((sim->pos.y - sim->target.y)*(sim->pos.y - sim->target.y))));
 	}
 
+
+	if(DEBUG_TIME) { 
+		for(int i = 0; i < 5; ++i) {
+			printf("time rec %d: %lf \n", i, sim_time_rec[i]);
+		}
+		outcome[NUM_PLAYERS + 0] += sim_time_rec[0];
+		outcome[NUM_PLAYERS + 1] += sim_time_rec[1];
+		outcome[NUM_PLAYERS + 2] += sim_time_rec[2];
+		outcome[NUM_PLAYERS + 3] += sim_time_rec[3];
+		outcome[NUM_PLAYERS + 4] += sim_time_rec[4]; 
+	}
 	return outcome;
 }
 
 
 int main(int argc, char** argv) {
-
+	printf("each network memory: %lf MB\ntotal memory used by the %d networks: %lf MB\nsize if using fully connected: %lf MB\n",
+	 (double) (((nx * ny * (Size_cluster * Size_cluster) + (((nx - 1)*ny) + ((ny - 1)*nx)) + Ncluster_links) * sizeof(long double) * 2)/1000000.0),
+	 popsize, (double) (((nx * ny * (Size_cluster * Size_cluster) + (((nx - 1)*ny) + ((ny - 1)*nx)) + Ncluster_links) * sizeof(long double) * popsize * 2)/1000000.0),
+	 (double) (nx*nx*ny*ny*Size_cluster*Size_cluster*sizeof(long double)*popsize*2) / 1000000.0);
 	int num_teams = (NUM_PLAYERS / PLAYERS_PER_TEAM);
 	int pop_per_team = popsize / num_teams;
+
+	clock_t start, end;
+	clock_t threading_start, threading_join;
+	int num_sims = Learning_time * Ngame * (popsize/NUM_PLAYERS);
+	int sim_count = 0;
+	float *sims_time_rec = malloc(sizeof(float) * num_sims * 5);
+	double time_join_loss;
+	double time_total = 0.0;
+	double longest_sim;
+	double round_time = 0.0;
 
   	/* NEURAL NETWORK INITIALIZATION */
 	float high_score = -1000.0;
@@ -437,7 +496,7 @@ int main(int argc, char** argv) {
 
 	Species *animal_kingdom = malloc(sizeof(Species) * num_teams);
 	for(int i = 0; i < num_teams; ++i) {
-	  animal_kingdom[i].ga = Brain_GA_graph_init(pop_per_team,N_INPUT,N_OUTPUT,nx,ny,Size_cluster,Ncluster_links);
+	  	animal_kingdom[i].ga = Brain_GA_graph_init(pop_per_team,N_INPUT,N_OUTPUT,nx,ny,Size_cluster,Ncluster_links);
 		animal_kingdom[i].schedule = malloc(sizeof(int)*animal_kingdom[i].ga->n);
 	}
 
@@ -458,8 +517,10 @@ int main(int argc, char** argv) {
 	pthread_t threads[MAX_THREADS];
 	void *res;
 
+
 	for (int li=0;li<Learning_time;++li) {  
 		printf("round: %d out of %d, %.2f done\n",li,Learning_time,((float)li/(float)Learning_time));
+		start = clock();
 
 		//RESET FITNESS
 		for(int ii=0;ii<num_teams;++ii) {
@@ -477,6 +538,8 @@ int main(int argc, char** argv) {
 			int j = 0;
 			while(j < popsize/NUM_PLAYERS) {
 				if(DEBUG_THREADS) { printf("j: %d, popsize/NUM_PLAYERS:%d\n\t", j, popsize/NUM_PLAYERS); }
+				threading_start = clock();
+				longest_sim = -1.0;
 				if(popsize/NUM_PLAYERS >= j + MAX_THREADS) {
 					if(DEBUG_THREADS) { printf("creating threads...\n");}
 					for(int t=0;t<MAX_THREADS;++t) {
@@ -484,9 +547,7 @@ int main(int argc, char** argv) {
 						for(int ii=0;ii<num_teams;++ii){
 							for(int tb=0; tb<PLAYERS_PER_TEAM; ++tb) { //go through each team
 								if(DEBUG_THREADS) { printf("\t\tsim %d player %d is getting species %d schedule place %d\n", t, (ii*PLAYERS_PER_TEAM)+tb, ii, (PLAYERS_PER_TEAM*(j+t))+tb); }
-
 								brain_replace(sims[t].players[(ii*PLAYERS_PER_TEAM)+tb].br, animal_kingdom[ii].ga->pop[animal_kingdom[ii].schedule[(PLAYERS_PER_TEAM*(j+t))+tb]]);
-
 							}
 						}
 						if(DEBUG_THREADS) { printf("\t\tready\n");}
@@ -507,23 +568,30 @@ int main(int argc, char** argv) {
 	    						}
 							}
 						}
+						if(DEBUG_TIME) { 
+							if(((float *) res)[NUM_PLAYERS + 0] > longest_sim) {
+								longest_sim = ((float *) res)[NUM_PLAYERS + 0];
+							}
+							for(int t_r = 0; t_r < 5; ++t_r) {
+								sims_time_rec[(sim_count * 5) + t_r] = ((float *) res)[NUM_PLAYERS + t_r];
+							}
+						}
+						printf("sim rec: %d\n", sim_count); 
+
+						sim_count++;
 						free(res);
 					}
 					j = j + MAX_THREADS;
 				}
 				else {  //case when games left is less than MAX_THREADS
 					int leftover = (popsize/NUM_PLAYERS) - 1 - j;
-					printf("leftovers: %d\n", leftover);
+					if(DEBUG_THREADS) { printf("leftovers: %d\n", leftover); }
 					for(int t=0;t<leftover;++t) {
 						if(DEBUG_THREADS) { printf("\tthread%d\n",t);}
 						for(int ii=0;ii<num_teams;++ii){
 							for(int tb=0; tb<PLAYERS_PER_TEAM; ++tb) { //go through each team
-
-
 								if(DEBUG_THREADS) { printf("\t\tsim %d player %d is getting species %d schedule place %d\n", t, (ii*PLAYERS_PER_TEAM)+tb, ii, (PLAYERS_PER_TEAM*(j+t))+tb); }
-
 								brain_replace(sims[t].players[(ii*PLAYERS_PER_TEAM)+tb].br, animal_kingdom[ii].ga->pop[animal_kingdom[ii].schedule[(PLAYERS_PER_TEAM*(j+t))+tb]]);
-
 							}
 						}
 						pthread_create(&threads[t], NULL, SimulationThread, &sims[t]);
@@ -540,10 +608,22 @@ int main(int argc, char** argv) {
 	    						}
 							}
 						}
+						if(DEBUG_TIME) { 
+							if(((float *) res)[NUM_PLAYERS + 0] > longest_sim) {
+								longest_sim = ((float *) res)[NUM_PLAYERS + 0];
+							}
+							for(int t_r = 0; t_r < 5; ++t_r) {
+								sims_time_rec[(sim_count * 5) + t_r] = ((float *) res)[NUM_PLAYERS + t_r];
+							} 
+						}
+						printf("sim rec: %d\n", sim_count);
+						sim_count++;
 						free(res);
 					}
 					j = popsize/NUM_PLAYERS;
 				}
+				threading_join = clock();
+				if(DEBUG_TIME) { time_join_loss += ((((double) threading_join - threading_start)/CLOCKS_PER_SEC) - longest_sim); }
 			}
 			//mutate_sigma(ga);
 			//GA_mutate_weights(ga,CHANCE_MUTATION);
@@ -566,22 +646,63 @@ int main(int argc, char** argv) {
 			Brain_GA_tournament_selection(animal_kingdom[ii].ga);
 			Brain_GA_mutate_sigma(animal_kingdom[ii].ga);
 			Brain_GA_mutate_weights(animal_kingdom[ii].ga,CHANCE_MUTATION);
-		        Brain_GA_mutate_table(animal_kingdom[ii].ga,CHANCE_MUTATION);
+			Brain_GA_mutate_table(animal_kingdom[ii].ga,CHANCE_MUTATION);
 			
 		}
 		Brain_GA_out_fit(ffit,animal_kingdom[0].ga);  
 		Brain_GA_out_sig(fsig,animal_kingdom[0].ga);
+		end = clock();
+		round_time = ((double) (end - start)) / CLOCKS_PER_SEC;
+		printf("round %d took %lf secs\n", li, round_time);
+		time_total += round_time;
 	}
 
 
   	/*TRAINING DONE*/
-
+	//NUM_PLAYERS + 0: total time of simulation
+	//NUM_PLAYERS + 1: time performing sensor looks
+	//NUM_PLAYERS + 2: time performing network pass
+	//NUM_PLAYERS + 3: time performing shoot
+	//NUM_PLAYERS + 4: time performing physics space step
 	printf("Training done \n\n");
+	printf("Total Training Time: %lf\n", time_total);
+	if(DEBUG_TIME) { printf("Time lost from waiting for join: %lf\n", time_join_loss); }
+	//num_sims
+	double avg_sim_time = 0.0;
+	double avg_sensor_time = 0.0;
+	double avg_network_time = 0.0;
+	double avg_shooting_time = 0.0;
+	double avg_physics_time = 0.0;
+
+	if(DEBUG_TIME) { 
+		for(int i = 0; i < num_sims; ++i) {
+			avg_sim_time 		+= sims_time_rec[(5*i)+0];
+			avg_sensor_time 	+= sims_time_rec[(5*i)+1];
+			avg_network_time 	+= sims_time_rec[(5*i)+2];
+			avg_shooting_time 	+= sims_time_rec[(5*i)+3];
+			avg_physics_time 	+= sims_time_rec[(5*i)+4];
+		}
+
+		avg_sim_time = avg_sim_time / (double) num_sims;
+		avg_sensor_time = avg_sensor_time / (double) num_sims;
+		avg_network_time = avg_network_time / (double) num_sims;
+		avg_shooting_time = avg_shooting_time / (double) num_sims;
+		avg_physics_time = avg_physics_time / (double) num_sims;
+
+		printf("average simulation step time: %lf\n", avg_sim_time);
+		printf("average sensor time: %lf\n", avg_sensor_time);
+		printf("average network time: %lf\n", avg_network_time);
+		printf("average shooting time: %lf\n", avg_shooting_time);
+		printf("average physics time: %lf\n", avg_physics_time);
+	}
+
+
+
 	brain_write(animal_kingdom[0].ga->pop[Brain_GA_max_fit(animal_kingdom[0].ga)]);
 
 	for(int current_team=0; current_team < num_teams; ++current_team) {
 		for(int current_player = 0; current_player < PLAYERS_PER_TEAM; ++current_player) {
-		  render_sim.players[(current_team*PLAYERS_PER_TEAM) + current_player].br = brain_graph_init(N_INPUT,N_OUTPUT,nx,ny,Size_cluster,Ncluster_links);
+		  	render_sim.players[(current_team*PLAYERS_PER_TEAM) + current_player].br = brain_graph_init(N_INPUT,N_OUTPUT,nx,ny,Size_cluster,Ncluster_links);
 			brain_replace(render_sim.players[(current_team*PLAYERS_PER_TEAM) + current_player].br,animal_kingdom[current_team].ga->pop[Brain_GA_n_best(animal_kingdom[current_team].ga, current_player)]);
 		}
 	}
