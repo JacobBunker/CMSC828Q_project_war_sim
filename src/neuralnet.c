@@ -100,18 +100,18 @@ neuralnet* neuralnet_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
 
 neuralnet* neuralnet_full_init(int Ninput,int Noutput,int MAX_NEURON){
   /*This functions instanciates the struct neuralnet.It defines the numberof inputs and outputs and  initializes the weight matrix (W), adjancy matrix(A) and  inital activations (a) at random.*/
-  int indA,indW;
+  int indW;
     assert(Ninput+Noutput+1<MAX_NEURON); 
   
     int Nhidden=MAX_NEURON-Ninput-Noutput,
-      sizeA=MAX_NEURON*MAX_NEURON*sizeof(int),
-      sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double),
-      sizea=MAX_NEURON*2*sizeof(long double),
-      sizetable=MAX_NEURON*sizeof(long double);  
-  neuralnet* nn=malloc(sizeof(neuralnet)+sizeA+sizeW+sizea+sizetable);
+      //sizeA=MAX_NEURON*MAX_NEURON*sizeof(int),
+      sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double)+sizeof(array3d_double),
+      sizea=MAX_NEURON*2*sizeof(long double)+sizeof(array3d_double),
+      sizetable=MAX_NEURON*sizeof(long double)+sizeof(array3d_double);  
+  neuralnet* nn=malloc(sizeof(neuralnet)+sizeW+sizea+sizetable);
   
 
-  nn->A=array3d_int_init(MAX_NEURON,MAX_NEURON,1);
+  //  nn->A=array3d_int_init(MAX_NEURON,MAX_NEURON,1);
   nn->W=array3d_double_init(MAX_NEURON,MAX_NEURON,1);
   nn->a=array3d_double_init(MAX_NEURON,2,1);
   nn->table_act=array3d_double_init(MAX_NEURON,1,1);
@@ -141,8 +141,6 @@ neuralnet* neuralnet_full_init(int Ninput,int Noutput,int MAX_NEURON){
   for(int i=0;i<nn->Nneuron;++i){
     for(int j=0;j<nn->Nneuron;++j){
       if(i!=j){
-	indA=array3d_int_index(nn->A,i,j,0);
-	nn->A->array[indA]=1;
 	indW=array3d_double_index(nn->W,i,j,0);
 	nn->W->array[indW]=(long double) (SPREAD*random())/ INT_MAX -SPREAD/2;
 	++nn->Nlinks;
@@ -177,7 +175,7 @@ long double sigmoid (long double x){
 }
 
 void compute_act(neuralnet *nn){
-  int indW,indacur,indaold,indA,inda;
+  int indW,indacur,indaold,inda;
   long double temp=0;
   inda=array3d_double_index(nn->a,nn->Ninput,nn->old,0);
   nn->a->array[inda]=1;
@@ -186,9 +184,8 @@ void compute_act(neuralnet *nn){
     temp=0;
     for(int j=0;j<nn->Nneuron;++j){
       indW=array3d_double_index(nn->W,i,j,0);
-      indA=array3d_int_index(nn->A,i,j,0);
       indaold=array3d_double_index(nn->a,j,nn->old,0);
-      temp+=(nn->A->array[indA])*(nn->W->array[indW])*(nn->a->array[indaold]);
+      temp+=(nn->W->array[indW])*(nn->a->array[indaold]);
     }
     
     nn->a->array[indacur]=tanh(0.1*temp);
@@ -197,7 +194,7 @@ void compute_act(neuralnet *nn){
 }
 
 void neuralnet_lin_computation(neuralnet *nn){
-  int indW,indacur,indaold,indA;
+  int indW,indacur,indaold;
   long double temp=0;
   
   int inda= array3d_double_index(nn->a,nn->Ninput,nn->old,0);
@@ -208,9 +205,8 @@ void neuralnet_lin_computation(neuralnet *nn){
     temp=0;
     for(int j=0;j<nn->Nneuron;++j){
       indW=array3d_double_index(nn->W,i,j,0);
-      indA=array3d_int_index(nn->A,i,j,0);
       indaold=array3d_double_index(nn->a,j,nn->old,0);
-      temp+=(nn->A->array[indA])*(nn->W->array[indW])*(nn->a->array[indaold]);
+      temp+=(nn->W->array[indW])*(nn->a->array[indaold]);
     }
     nn->a->array[indacur]=temp;
   }
@@ -317,6 +313,16 @@ void mutate_weights(neuralnet *nn,double sigma){
     }
   }
 
+void full_mutate_weights(neuralnet *nn,double sigma){ 
+  int indW;
+  for(int i=0;i<nn->MAX_NEURON;++i){
+    for(int j=0;j<nn->MAX_NEURON;++j){
+      indW=array3d_double_index(nn->W,i,j,0);
+      nn->W->array[indW]=nn->W->array[indW]+randn(0,sigma);
+    }
+  }
+}
+
 
 void neuralnet_mutate_table(neuralnet *nn,double sigma){
   for(int i=0;i<nn->Nneuron;++i){
@@ -353,6 +359,24 @@ long double randn (double mu, double sigma)
   call = !call;
  
   return (mu + sigma * (long double) X1);
+}
+void full_neuralnet_free(neuralnet* nn ){
+  free(nn->a->array);
+  nn->a->array=NULL;
+  free(nn->a);
+
+  free(nn->W->array);
+  nn->W->array=NULL;
+  free(nn->W);
+
+  free(nn->A);
+
+  free(nn->table_act->array);
+  nn->table_act->array=NULL;
+  free(nn->table_act);
+  
+  free(nn);
+
 }
 
 void neuralnet_free(neuralnet* nn ){
@@ -429,6 +453,31 @@ void neuralnet_replace(neuralnet *destination ,neuralnet *source ){
   
 }
 
+void full_neuralnet_replace(neuralnet *destination ,neuralnet *source ){
+  //printf("nn_repl for 0 \n");
+  assert(destination->MAX_NEURON==source->MAX_NEURON && destination->MAX_LINKS==source->MAX_LINKS);
+  //  printf("nn_repl for 1 \n");
+  destination->t=source->t;
+  destination->old=source->old;
+  destination->cur=source->cur;
+  destination->MAX_NEURON=source->MAX_NEURON;
+  destination->MAX_LINKS=source->MAX_LINKS;
+  destination->Nhidden=source->Nhidden;
+  destination->Ninput=source->Ninput;
+  destination->Noutput=source->Noutput;
+  destination->Nneuron=source->Nneuron; 
+  destination->Nlinks=source->Nlinks;
+  //  printf("nn_repl for 2 \n");
+  //printf("nn_repl for 3 \n");
+  array3d_double_replace(destination->W,source->W);
+  //printf("nn_repl for 4 \n");
+  array3d_double_replace(destination->a,source->a);
+  //printf("nn_repl for 5 \n");
+  array3d_double_replace(destination->table_act,source->table_act);
+  //printf("nn_repl for out \n");
+  
+}
+
 void neuralnet_write(neuralnet * nn){
   FILE* fW,*fA,*fa,*ftable;
     assert((fW=fopen("./txt/W.txt","wb"))!=NULL);
@@ -446,6 +495,24 @@ void neuralnet_write(neuralnet * nn){
     fclose(fa);
     fclose(ftable);
   }
+
+
+void full_neuralnet_write(neuralnet * nn){
+  FILE* fW,*fa,*ftable;
+    assert((fW=fopen("./txt/W.txt","wb"))!=NULL);
+    assert((fa=fopen("./txt/a.txt","wb"))!=NULL);
+    assert((ftable=fopen("./txt/table_act.txt","wb"))!=NULL);
+    
+    array3d_double_write(fW,nn->W);
+    array3d_double_write(fa,nn->a);
+    array3d_double_write(ftable,nn->table_act);
+
+    fclose(fW);
+    fclose(fa);
+    fclose(ftable);
+  }
+
+
   void neuralnet_read(neuralnet * nn){
     FILE* fW,*fA,*fa,*ftable;
     assert((fW=fopen("./txt/W.txt","rb"))!=NULL);
@@ -464,6 +531,21 @@ void neuralnet_write(neuralnet * nn){
     fclose(ftable);
     
   }
+  void full_neuralnet_read(neuralnet * nn){
+    FILE* fW,*fa,*ftable;
+    assert((fW=fopen("./txt/W.txt","rb"))!=NULL);
+    assert((fa=fopen("./txt/a.txt","rb"))!=NULL);
+    assert((ftable=fopen("./txt/table_act.txt","rb"))!=NULL);
+	
+    array3d_double_read(fW,nn->W);
+    array3d_double_read(fa,nn->a);
+    array3d_double_read(ftable,nn->table_act);
+	
+    fclose(fW);
+    fclose(fa);
+    fclose(ftable);
+    
+  }
 
 void neuralnet_write2(neuralnet * nn,FILE* fW,FILE* fA,FILE* fa,FILE * ftable){
     array3d_double_write(fW,nn->W);
@@ -474,6 +556,18 @@ void neuralnet_write2(neuralnet * nn,FILE* fW,FILE* fA,FILE* fa,FILE * ftable){
 void neuralnet_read2(neuralnet * nn,FILE* fW,FILE* fA,FILE* fa,FILE * ftable){
     array3d_double_read(fW,nn->W);
     array3d_int_read(fA,nn->A);
+    array3d_double_read(fa,nn->a);
+    array3d_double_read(ftable,nn->table_act);
+  }
+
+
+void full_neuralnet_write2(neuralnet * nn,FILE* fW,FILE* fa,FILE * ftable){
+    array3d_double_write(fW,nn->W);
+    array3d_double_write(fa,nn->a);
+    array3d_double_write(ftable,nn->table_act);
+  }
+void full_neuralnet_read2(neuralnet * nn,FILE* fW,FILE* fa,FILE * ftable){
+    array3d_double_read(fW,nn->W);
     array3d_double_read(fa,nn->a);
     array3d_double_read(ftable,nn->table_act);
   }

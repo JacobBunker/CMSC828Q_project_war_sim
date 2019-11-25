@@ -90,26 +90,26 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
 	 Ncluster_links+(nx-1)*ny+(ny-1)*nx<nx*nx*ny*ny  ) ; 
   // add assert number of links
   int Ncluster=nx*ny;
-  
+  int Ntotal_links=2*((nx-1)*ny+(ny-1)*nx)+Ncluster_links;
+   
   int intra_sizeA=Size_cluster*Size_cluster*sizeof(int),
     intra_sizeW=Size_cluster*Size_cluster*sizeof(long double),
     intra_sizea=Size_cluster*2*sizeof(long double),
     intra_sizetable=Size_cluster*sizeof(long double),
-    sizeA=Ncluster*Ncluster*sizeof(int), 
-    sizeW=Ncluster*Ncluster*sizeof(long double); 
+    sizeA=Ncluster*Ncluster*sizeof(int)+sizeof(array3d_int), 
+    sizeW=Ntotal_links*Ncluster*sizeof(long double)+sizeof(array3d_double); 
   
-  int intrann_size=sizeof(neuralnet)+intra_sizea+intra_sizeW+intra_sizeA+intra_sizetable; //  
-  int br_size=sizeof(brain)+intrann_size*Ncluster+sizeA+sizeW;
+  int cluster_size=sizeof(neuralnet)+intra_sizea+intra_sizeW+intra_sizeA+intra_sizetable; //  
+  int br_size=sizeof(brain)+cluster_size*Ncluster+sizeA+sizeW;
   brain * br=malloc(br_size);
-
+  br->Ntotal_links=Ntotal_links;
   br->br_size=br_size;
   br->Ncluster=Ncluster;
   br->Noutput=Noutput;
   br->Ninput=Ninput;
   br->Size_cluster=Size_cluster;
   br->Ncluster_links=Ncluster_links;
-  br->cluster=malloc(Ncluster*intrann_size);
-  br->Ntotal_links=2*((nx-1)*ny+(ny-1)*nx)+Ncluster_links;
+  br->cluster=malloc(Ncluster*cluster_size);
   
   br->cluster[0]=neuralnet_full_init(Ninput,0,Size_cluster); //input nn
   br->cluster[Ncluster-1]=neuralnet_full_init(0,Noutput,Size_cluster); //output nn
@@ -125,7 +125,7 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
   int a,b,Notyet,indA,indW;
   int Nlinks=0;
   assert(br->Ntotal_links< br->Ncluster * br->Ncluster - br->Ncluster);
-  while(Nlinks<Ncluster_links){
+  while(Nlinks<br->Ncluster_links){
     Notyet=1;
     while(Notyet){
       // Loop that initiate weights at random.
@@ -138,25 +138,20 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
       indA=array3d_int_index(br->A,a,b,0);
       if(br->A->array[indA]==0){
 	br->A->array[indA]=1;
-	for(int i =0;i<Size_cluster;++i){
-	  indW=array3d_double_index(br->W,Nlinks,i,0);
-	  temp=(long double) (SPREAD*random())/ INT_MAX -SPREAD/2;
-	  br->W->array[indW]=temp;
-	}
 	++Nlinks;
 	Notyet=0;
       }
     }
   }
-  int act=0;
-  for(int i=0;i<Ncluster*Ncluster;++i){
-    if(br->A->array[i]==1){
-      ++act;
+  for(int i=0;i<br->Ntotal_links;++i){
+    for(int j =0;j<Size_cluster;++j){
+      indW=array3d_double_index(br->W,i,j,0);
+      temp=(long double) (SPREAD*random())/ INT_MAX -SPREAD/2;
+      br->W->array[indW]=temp;
     }
   }
-
-
-  return br;
+  
+return br;
 }
 
    
@@ -199,13 +194,20 @@ void brain_forward_pass(brain *br,float* input,float* output){
   }
   brain_pass_float_input(br,input);
   int indA=0,
-    weight_ind=0;
+    weight_ind=0,
+    lala=0;
+  for(int i=0;i<br->Ncluster*br->Ncluster;++i){
+    if(br->A->array[i]){
+      ++lala;
+    }
+  }
+  
   for(int i=0;i<br->Ncluster;++i){
     advance_state(br->cluster[i]);
     neuralnet_lin_computation(br->cluster[i]);
     for(int j=0;j<br->Ncluster;++j){
       indA=array3d_int_index(br->A,j,i,0);
-      if(br->A->array[indA]){       
+      if(br->A->array[indA]){
 	brain_outer_cluster_compute_lin(br,j,i,weight_ind);
 	++weight_ind;
       }
@@ -226,7 +228,7 @@ void brain_show_weights(brain *br){
 
 void brain_free(brain *br){
   for(int i=0;i<br->Ncluster;++i){
-    neuralnet_free(br->cluster[i]);
+    full_neuralnet_free(br->cluster[i]);
   }
 
 
@@ -252,7 +254,7 @@ void brain_replace(brain *destination ,brain *source ){
 
   for(int i=0;i<destination->Ncluster;++i){
     //printf("br_repl for in %d \n",i);
-    neuralnet_replace(destination->cluster[i],source->cluster[i]);
+    full_neuralnet_replace(destination->cluster[i],source->cluster[i]);
     //printf("br_repl for out %d \n",i);
   }
   // printf("br_repl 1 \n");
@@ -269,7 +271,7 @@ void brain_mutate_weights(brain *br,double sigma){
     printf("br mut we\n");
   }
   for(int i=0;i<br->Ncluster;++i){
-    mutate_weights(br->cluster[i],sigma);
+    full_mutate_weights(br->cluster[i],sigma);
   }
     
   for(int i =0 ;i<br->Ntotal_links;++i){
@@ -416,16 +418,15 @@ void brain_write(brain * br){
   if(DEBUG_HARD){
     printf("br writer\n");
   }
-  FILE *fcW,*fcA,*fca,*fW,*fA,*fctable;
+  FILE *fcW,*fca,*fW,*fA,*fctable;
   assert((fW=fopen("./txt/W.txt","wb"))!=NULL);
   assert((fA=fopen("./txt/A.txt","wb"))!=NULL);
   assert((fcW=fopen("./txt/fcW.txt","wb"))!=NULL);
-  assert((fcA=fopen("./txt/fcA.txt","wb"))!=NULL);
   assert((fca=fopen("./txt/fca.txt","wb"))!=NULL);
   assert((fctable=fopen("./txt/fctable.txt","wb"))!=NULL);
   
   for(int i=0;i<br->Ncluster;++i){
-    neuralnet_write2(br->cluster[i],fcW,fcA,fca,fctable); 
+    full_neuralnet_write2(br->cluster[i],fcW,fca,fctable); 
   }
 
   array3d_double_write(fW,br->W);
@@ -435,7 +436,6 @@ void brain_write(brain * br){
   fclose(fA);
   fclose(fca);
   fclose(fcW);
-  fclose(fcA);
   fclose(fctable);
 }
 
@@ -452,7 +452,7 @@ void brain_read(brain * br){
   assert((fctable=fopen("./txt/fctable.txt","rb"))!=NULL);
   
   for(int i=0;i<br->Ncluster;++i){
-    neuralnet_read2(br->cluster[i],fcW,fcA,fca,fctable); 
+    full_neuralnet_read2(br->cluster[i],fcW,fca,fctable); 
   }
 
   array3d_double_read(fW,br->W);

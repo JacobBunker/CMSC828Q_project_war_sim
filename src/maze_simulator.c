@@ -34,7 +34,7 @@
 #define CHANCE_MUTATION 0.8
 #define AGENT_HEALTH 30.0
 #define AGENT_HIT_REWARD 100.0
-#define MAX_THREADS 20
+#define MAX_THREADS 10
 
 
 #define DEBUG_PRINT 0
