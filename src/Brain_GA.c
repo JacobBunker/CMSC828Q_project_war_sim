@@ -27,7 +27,7 @@ Brain_GA * Brain_GA_init(int n,int Ninput,int Noutput,int Ncluster,int Size_clus
   int cluster_size=sizeof(neuralnet)+cluster_sizea+cluster_sizeW+cluster_sizeA+cluster_sizetable; 
   int brain_size=sizeof(brain)+cluster_size*Ncluster+sizeA+sizeW;
 
-  Brain_GA * bga=malloc(sizeof(Brain_GA)+2*sizefit+sizesig+2*n*brain_size);
+  Brain_GA * bga=malloc(sizeof(Brain_GA));// +2*sizefit+sizesig+2*n*brain_size);
 
   bga->pop=malloc(n*brain_size);
   bga->copy_pop=malloc(n*brain_size);

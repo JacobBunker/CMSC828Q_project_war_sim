@@ -34,7 +34,7 @@
 #define CHANCE_MUTATION 0.8
 #define AGENT_HEALTH 30.0
 #define AGENT_HIT_REWARD 100.0
-#define MAX_THREADS 10
+#define MAX_THREADS 20
 
 
 #define DEBUG_PRINT 0
@@ -49,12 +49,12 @@ cpVect spawns[NUM_PLAYERS/PLAYERS_PER_TEAM];
 float team_colors[2][3];
 
 int popsize=2*NUM_PLAYERS,
-  nx=5,
-  ny=5,
+  nx=8,
+  ny=8,
   Size_cluster=20,
-  Ncluster_links=100,
+  Ncluster_links=1000,
   Ngame=5,
-  Learning_time=3; 
+  Learning_time=1; 
 
 
 

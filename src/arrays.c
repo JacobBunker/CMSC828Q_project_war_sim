@@ -9,7 +9,7 @@
 #define DEBUG_IND 0
 
 array3d_int* array3d_int_init(int dim1,int dim2,int dim3){
-  array3d_int *arr=malloc(sizeof(int)*(dim1*dim2*dim3)+sizeof(array3d_int));
+  array3d_int *arr=malloc(sizeof(array3d_int));
 
   arr->dim1=dim1;
   arr->dim2=dim2;
@@ -50,7 +50,7 @@ void array3d_int_show(array3d_int *arr){
 
 
  array3d_double* array3d_double_init(int dim1,int dim2,int dim3){
-   array3d_double *arr=malloc(sizeof(long double)*(dim1*dim2*dim3)+sizeof(array3d_double));
+   array3d_double *arr=malloc(sizeof(array3d_double));
   arr->dim1=dim1;
   arr->dim2=dim2;
   arr->dim3=dim3;

@@ -17,12 +17,12 @@ neuralnet* neuralnet_init(int Ninput,int Noutput,int MAX_NEURON,int MAX_LINKS){
   
   int Nhidden=rand()%(MAX_NEURON-1 -Ninput-Noutput)+1; // Nhidden>5.
   /*  const in size= sizeof(neuralnet)+sizeof(long double) *MAX_NEURON*(MAX_NEURON*2+2)+sizeof(int) *MAX_NEURON*MAX_NEURON*2;*/
-  int sizeA=MAX_NEURON*MAX_NEURON*sizeof(int);
-  int   sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double);
-  int   sizea=MAX_NEURON*2*sizeof(long double);
-  int   sizetable=MAX_NEURON*sizeof(long double);
+  /* int sizeA=MAX_NEURON*MAX_NEURON*sizeof(int); */
+  /* int   sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double); */
+  /* int   sizea=MAX_NEURON*2*sizeof(long double); */
+  /* int   sizetable=MAX_NEURON*sizeof(long double); */
     
-  neuralnet* nn=malloc(sizeof(neuralnet)+sizeA+sizeW+sizea+sizetable);
+  neuralnet* nn=malloc(sizeof(neuralnet));//+sizeA+sizeW+sizea+sizetable);
   
 
   nn->A=array3d_int_init(MAX_NEURON,MAX_NEURON,1);

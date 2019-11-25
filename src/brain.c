@@ -30,7 +30,7 @@ brain * brain_init(int Ninput,int Noutput,int Ncluster,int Size_cluster,int Nclu
   
   int intrann_size=sizeof(neuralnet)+intra_sizea+intra_sizeW+intra_sizeA+intra_sizetable; // 
  
-  brain * br=malloc(sizeof(brain)+intrann_size*Ncluster+sizeA+sizeW);
+  brain * br=malloc(sizeof(brain));//+intrann_size*Ncluster+sizeA+sizeW);
   
   br->Ncluster=Ncluster;
   br->Noutput=Noutput;
