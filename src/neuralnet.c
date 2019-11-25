@@ -103,12 +103,8 @@ neuralnet* neuralnet_full_init(int Ninput,int Noutput,int MAX_NEURON){
   int indW;
     assert(Ninput+Noutput+1<MAX_NEURON); 
   
-    int Nhidden=MAX_NEURON-Ninput-Noutput,
-      //sizeA=MAX_NEURON*MAX_NEURON*sizeof(int),
-      sizeW=MAX_NEURON*MAX_NEURON*sizeof(long double)+sizeof(array3d_double),
-      sizea=MAX_NEURON*2*sizeof(long double)+sizeof(array3d_double),
-      sizetable=MAX_NEURON*sizeof(long double)+sizeof(array3d_double);  
-  neuralnet* nn=malloc(sizeof(neuralnet)+sizeW+sizea+sizetable);
+    int Nhidden=MAX_NEURON-Ninput-Noutput;
+  neuralnet* nn=malloc(sizeof(neuralnet));
   
 
   //  nn->A=array3d_int_init(MAX_NEURON,MAX_NEURON,1);
@@ -368,13 +364,10 @@ void full_neuralnet_free(neuralnet* nn ){
   free(nn->W->array);
   nn->W->array=NULL;
   free(nn->W);
-
-  free(nn->A);
-
+  
   free(nn->table_act->array);
   nn->table_act->array=NULL;
   free(nn->table_act);
-  
   free(nn);
 
 }

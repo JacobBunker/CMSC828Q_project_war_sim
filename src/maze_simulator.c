@@ -34,7 +34,7 @@
 #define CHANCE_MUTATION 0.8
 #define AGENT_HEALTH 30.0
 #define AGENT_HIT_REWARD 100.0
-#define MAX_THREADS 20
+#define MAX_THREADS 10
 
 
 #define DEBUG_PRINT 0
@@ -48,13 +48,13 @@ char buffer[64];
 cpVect spawns[NUM_PLAYERS/PLAYERS_PER_TEAM];
 float team_colors[2][3];
 
-int popsize=2*NUM_PLAYERS,
-  nx=8,
-  ny=8,
-  Size_cluster=20,
-  Ncluster_links=1000,
+int popsize=5*NUM_PLAYERS,
+  nx=10,
+  ny=10,
+  Size_cluster=19,
+  Ncluster_links=200,
   Ngame=5,
-  Learning_time=1; 
+  Learning_time=5; 
 
 
 
@@ -201,10 +201,11 @@ void FreeSim(SimulationState *sim) {
 	free(sim->obstacle_bodies);
 	free(sim->obstacles);
 
+
 	for(int i=0;i<NUM_PLAYERS;++i){
-		brain_free(sim->players[i].br);
-		free(sim->players[i].shape);
-		free(sim->players[i].body);
+	  brain_free(sim->players[i].br);
+	  free(sim->players[i].shape);
+	  free(sim->players[i].body);
 	}
 
 	free(sim->players);

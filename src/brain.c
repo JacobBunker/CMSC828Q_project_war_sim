@@ -21,15 +21,9 @@ brain * brain_init(int Ninput,int Noutput,int Ncluster,int Size_cluster,int Nclu
   }
   // add assert number of links
   
-  int intra_sizeA=Size_cluster*Size_cluster*sizeof(int),
-    intra_sizeW=Size_cluster*Size_cluster*sizeof(long double),
-    intra_sizea=Size_cluster*2*sizeof(long double),
-    intra_sizetable=Size_cluster*sizeof(long double),
-    sizeA=Ncluster*Ncluster*sizeof(int), 
-    sizeW=Ncluster*Ncluster*sizeof(long double); 
-  
-  int intrann_size=sizeof(neuralnet)+intra_sizea+intra_sizeW+intra_sizeA+intra_sizetable; // 
+
  
+
   brain * br=malloc(sizeof(brain));//+intrann_size*Ncluster+sizeA+sizeW);
   
   br->Ncluster=Ncluster;
@@ -37,7 +31,7 @@ brain * brain_init(int Ninput,int Noutput,int Ncluster,int Size_cluster,int Nclu
   br->Ninput=Ninput;
   br->Size_cluster=Size_cluster;
   br->Ncluster_links=Ncluster_links;
-  br->cluster=malloc(Ncluster*intrann_size);
+  br->cluster=malloc(Ncluster*sizeof(neuralnet));
   
   br->cluster[0]=neuralnet_full_init(Ninput,0,Size_cluster); //input nn
   br->cluster[Ncluster-1]=neuralnet_full_init(0,Noutput,Size_cluster); //output nn
@@ -92,15 +86,9 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
   int Ncluster=nx*ny;
   int Ntotal_links=2*((nx-1)*ny+(ny-1)*nx)+Ncluster_links;
    
-  int intra_sizeA=Size_cluster*Size_cluster*sizeof(int),
-    intra_sizeW=Size_cluster*Size_cluster*sizeof(long double),
-    intra_sizea=Size_cluster*2*sizeof(long double),
-    intra_sizetable=Size_cluster*sizeof(long double),
-    sizeA=Ncluster*Ncluster*sizeof(int)+sizeof(array3d_int), 
-    sizeW=Ntotal_links*Ncluster*sizeof(long double)+sizeof(array3d_double); 
+
   
-  int cluster_size=sizeof(neuralnet)+intra_sizea+intra_sizeW+intra_sizeA+intra_sizetable; //  
-  int br_size=sizeof(brain)+cluster_size*Ncluster+sizeA+sizeW;
+  int br_size=sizeof(brain);//+cluster_size*Ncluster+sizeA+sizeW;
   brain * br=malloc(br_size);
   br->Ntotal_links=Ntotal_links;
   br->br_size=br_size;
@@ -109,7 +97,7 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
   br->Ninput=Ninput;
   br->Size_cluster=Size_cluster;
   br->Ncluster_links=Ncluster_links;
-  br->cluster=malloc(Ncluster*cluster_size);
+  br->cluster=malloc(Ncluster*sizeof(neuralnet));
   
   br->cluster[0]=neuralnet_full_init(Ninput,0,Size_cluster); //input nn
   br->cluster[Ncluster-1]=neuralnet_full_init(0,Noutput,Size_cluster); //output nn
@@ -263,10 +251,8 @@ void brain_free(brain *br){
     full_neuralnet_free(br->cluster[i]);
   }
 
-
   free(br->W->array);
   free(br->W);
-
   free(br->A->array);
   free(br->A);
   free(br->cluster);

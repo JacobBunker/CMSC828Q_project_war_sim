@@ -55,17 +55,10 @@ Brain_GA * Brain_GA_graph_init(int n,int Ninput,int Noutput,int nx,int ny,int Si
   int Ncluster=nx*ny;
   int sizefit=n*sizeof(float);
   int sizesig=n*sizeof(float); 
-  int cluster_sizeA=Size_cluster*Size_cluster*sizeof(int),
-    cluster_sizeW=Size_cluster*Size_cluster*sizeof(long double),
-    cluster_sizea=Size_cluster*2*sizeof(long double),
-    cluster_sizetable=Size_cluster*sizeof(long double),
-    sizeA=Ncluster*Ncluster*sizeof(int), 
-    sizeW=Ncluster*Ncluster*sizeof(long double); 
   
-  int cluster_size=sizeof(neuralnet)+cluster_sizea+cluster_sizeW+cluster_sizeA+cluster_sizetable; 
-  int brain_size=sizeof(brain)+cluster_size*Ncluster+sizeA+sizeW;
+  int brain_size=sizeof(brain);
 
-  Brain_GA * bga=malloc(sizeof(Brain_GA)+2*sizefit+sizesig+2*n*brain_size);
+  Brain_GA * bga=malloc(sizeof(Brain_GA));
 
   bga->pop=malloc(n*brain_size);
   bga->copy_pop=malloc(n*brain_size);
@@ -196,7 +189,7 @@ void Brain_GA_mutate_table(Brain_GA *bga,float pm){
   }
 }
 void Brain_GA_free(Brain_GA* bga){
-    for(int i=0;i<bga->n;++i){
+  for(int i=0;i<bga->n;++i){
     brain_free(bga->pop[i]);
     brain_free(bga->copy_pop[i]);
   }
@@ -206,7 +199,6 @@ void Brain_GA_free(Brain_GA* bga){
   free(bga->pop);
   free(bga->copy_pop);
   free(bga);
-
 }
 
 void Brain_GA_out_fit(FILE * file, Brain_GA *bga){ 
