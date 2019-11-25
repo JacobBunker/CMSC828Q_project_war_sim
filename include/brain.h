@@ -17,6 +17,7 @@ void brain_show_act(brain *br);
 void brain_show_table(brain *br);
 void brain_outer_cluster_compute_lin(brain* br,int i,int j,int weight_ind);
 void brain_forward_pass(brain *br,float* input,float* output);
+int brain_isnan(brain * br);
 void brain_show_weights(brain *br);
 void brain_free(brain *br);
 
