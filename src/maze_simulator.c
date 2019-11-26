@@ -314,9 +314,9 @@ void StepSim(SimulationState *sim, int graphics_on, double *rec_time) {
 			brain_forward_pass(sim->players[current_player].br,sim->input,sim->output);
 			if(DEBUG_TIME) { times[3] = clock(); }
 			for(int i = 0; i < N_OUTPUT; ++i) {
-				if(isnan(sim->output[i])) {
-					printf("output %d: %.3f\n", i, sim->output[i]);
-				}
+				/* if(isnan(sim->output[i])) { */
+				/* 	printf("output %d: %.3f\n", i, sim->output[i]); */
+				/* } */
 			}			
 
 			sim->vel.x = sim->force_multiplier*sim->output[0];

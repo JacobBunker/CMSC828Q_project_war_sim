@@ -158,9 +158,9 @@ void brain_show_table(brain *br){
 }
 
 void brain_outer_cluster_compute_lin(brain* br,int i,int j,int weight_ind){
-  if(DEBUG_HARD){
-    printf("outer_cluster\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("outer_cluster\n"); */
+  /* } */
   /* Compute the lineaire addition created by the link */
   /* between cluster i to cluster j */
   assert(i!=j && i<br->Ncluster && j<br->Ncluster);
@@ -182,50 +182,50 @@ void brain_forward_pass(brain *br,float* input,float* output){
   if(DEBUG_HARD){
     printf("br_forward_pass\n");
   }
-  if(brain_isnan(br)){
-    printf("in forward pass \n");
-    assert(!brain_isnan(br));
-  }
+  /* if(brain_isnan(br)){ */
+  /*   printf("in forward pass \n"); */
+  /*   assert(!brain_isnan(br)); */
+  /* } */
   brain_pass_float_input(br,input);
   int indA=0,
     weight_ind=0;
-  if(brain_isnan(br)){
-    printf("in pass float inp \n");
-    assert(!brain_isnan(br));
-  }  
+  /* if(brain_isnan(br)){ */
+  /*   printf("in pass float inp \n"); */
+  /*   assert(!brain_isnan(br)); */
+  /* }   */
   for(int i=0;i<br->Ncluster;++i){
     advance_state(br->cluster[i]);
-    if(brain_isnan(br)){
-      printf("in adv state \n");
-      assert(!brain_isnan(br));
-    }
-    neuralnet_lin_computation(br->cluster[i]);
-    if(brain_isnan(br)){
-      printf("in neural lin comp \n");
-      assert(!brain_isnan(br));
-    }
+    /* if(brain_isnan(br)){ */
+    /*   printf("in adv state \n"); */
+    /*   assert(!brain_isnan(br)); */
+    /* } */
+        neuralnet_lin_computation(br->cluster[i]);
+    /* if(brain_isnan(br)){ */
+    /*   printf("in neural lin comp \n"); */
+    /*   assert(!brain_isnan(br)); */
+    /* } */
     for(int j=0;j<br->Ncluster;++j){
       indA=array3d_int_index(br->A,i,j,0);
       if(br->A->array[indA]){
 	brain_outer_cluster_compute_lin(br,j,i,weight_ind);
-	if(brain_isnan(br)){
-	  printf("in outer com # %d %d \n",j,i);
-	  assert(!brain_isnan(br));
-	}
+	/* if(brain_isnan(br)){ */
+	/*   printf("in outer com # %d %d \n",j,i); */
+	/*   assert(!brain_isnan(br)); */
+	/* } */
 	++weight_ind;
       }
     }
     run_tanh(br->cluster[i]);
-    if(brain_isnan(br)){
-      printf("in runtan \n");
-      assert(!brain_isnan(br));
-    }
+    /* if(brain_isnan(br)){ */
+    /*   printf("in runtan \n"); */
+    /*   assert(!brain_isnan(br)); */
+    /* } */
   }
   brain_float_get_output(br,output);
-  if(brain_isnan(br)){
-    printf("in get out \n");
-    assert(!brain_isnan(br));
-  }
+  /* if(brain_isnan(br)){ */
+  /*   printf("in get out \n"); */
+  /*   assert(!brain_isnan(br)); */
+  /* } */
 }
 
 
@@ -261,9 +261,9 @@ void brain_free(brain *br){
 
 void brain_replace(brain *destination ,brain *source ){
   //  printf("br_repl 0 \n");
-  if(DEBUG_HARD){
-    printf("br replace\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("br replace\n"); */
+  /* } */
   assert(destination->Ncluster==source->Ncluster &&
 	 destination->Size_cluster==source->Size_cluster &&
 	 destination->Ncluster_links==source->Ncluster_links &&
@@ -285,9 +285,9 @@ void brain_replace(brain *destination ,brain *source ){
 
 void brain_mutate_weights(brain *br,double sigma){
   int indW;
-  if(DEBUG_HARD){
-    printf("br mut we\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("br mut we\n"); */
+  /* } */
   for(int i=0;i<br->Ncluster;++i){
     full_mutate_weights(br->cluster[i],sigma);
   }
@@ -301,35 +301,42 @@ void brain_mutate_weights(brain *br,double sigma){
 }
 
 void brain_float_get_output(brain * br,float * output){
-  if(DEBUG_HARD){
-    printf("br get out\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("br get out\n"); */
+  /* } */
   int inda;
+    /* inda=array3d_double_index(br->cluster[br->Ncluster-1]->a, */
+    /* 			      br->cluster[br->Ncluster-1]->Ninput+br->cluster[br->Ncluster-1]->Nhidden, */
+    /* 			      br->cluster[br->Ncluster-1]->cur,0); */
+    /* memcpy(output,&(br->cluster[br->Ncluster-1]->a[inda]),br->Noutput*sizeof(long double)); */
+  
   for (int i=0;i<br->Noutput;++i){
     inda=array3d_double_index(br->cluster[br->Ncluster-1]->a,
-			      br->cluster[br->Ncluster-1]->Ninput+br->cluster[br->Ncluster-1]->Nhidden+i,
-			      br->cluster[br->Ncluster-1]->cur,0);
+  			      br->cluster[br->Ncluster-1]->Ninput+br->cluster[br->Ncluster-1]->Nhidden+i,
+  			      br->cluster[br->Ncluster-1]->cur,0);
     output[i]=br->cluster[br->Ncluster-1]->a->array[inda];
   }
 }
 
 void brain_pass_float_input(brain* br, float* input){
-  if(DEBUG_HARD){
-    printf("br pass in\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("br pass in\n"); */
+  /* } */
   int inda;
+
+  /* inda=array3d_double_index(br->cluster[0]->a,0,br->cluster[0]->cur,0); */
+  /* memcpy(&(br->cluster[0]->a->array[inda]),input,sizeof(long double)*(br->Ninput)); */
   for (int i=0;i<br->Ninput;++i){
-    
     inda=array3d_double_index(br->cluster[0]->a
-			      ,i,br->cluster[0]->cur,0);
+  			      ,i,br->cluster[0]->cur,0);
     br->cluster[0]->a->array[inda]=input[i];
   }
 }
  
 array3d_int * graph_builder(int nx, int ny){
-  if(DEBUG_HARD){
-    printf("graph build\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("graph build\n"); */
+  /* } */
   array3d_int *  A=array3d_int_init(nx*ny,nx*ny,1);
   int indA;
   int notacorner(int i){
@@ -415,18 +422,18 @@ array3d_int * graph_builder(int nx, int ny){
 
 
 void brain_reset_act(brain * br){
-  if(DEBUG_HARD){
-    printf("reset act\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("reset act\n"); */
+  /* } */
   for(int i=0;i<br->Ncluster;++i){
     neuralnet_reset_act(br->cluster[i]);
   }
 }
 
 void brain_mutate_table(brain * br, double sigma){
-  if(DEBUG_HARD){
-    printf("br mut table\n");
-  }
+  /* if(DEBUG_HARD){ */
+  /*   printf("br mut table\n"); */
+  /* } */
   for(int i=0;i<br->Ncluster;++i){
     neuralnet_mutate_table(br->cluster[i],sigma);
   }  
