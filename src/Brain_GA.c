@@ -214,3 +214,71 @@ void Brain_GA_out_sig(FILE * file, Brain_GA *bga){
   }
   fprintf(file,"\n");
 }
+
+void Brain_GA_write(Brain_GA *bga){
+  FILE *fcW,*fca,*fW,*fA,*fctable,*fsig,*ffit;
+  assert((fW=fopen("./txt/W.txt","wb"))!=NULL);
+  assert((fA=fopen("./txt/A.txt","wb"))!=NULL);
+  assert((fcW=fopen("./txt/fcW.txt","wb"))!=NULL);
+  assert((fca=fopen("./txt/fca.txt","wb"))!=NULL);
+  assert((fctable=fopen("./txt/fctable.txt","wb"))!=NULL);
+  assert((fsig=fopen("./txt/fsig.txt","wb"))!=NULL);
+  assert((ffit=fopen("./txt/ffit.txt","wb"))!=NULL);
+  
+  for(int i=0;i<bga->n;++i){
+    brain_write2(bga->pop[i],fcW,fca,fW,fA,fctable);
+  }
+  Brain_GA_out_fit2(ffit, bga);
+  Brain_GA_out_sig2(fsig,bga);
+
+  fclose(fsig);
+  fclose(ffit);
+  fclose(fW);
+  fclose(fA);
+  fclose(fca);
+  fclose(fcW);
+  fclose(fctable);
+}
+
+
+
+void Brain_GA_out_fit2(FILE * file, Brain_GA *bga){  
+  fwrite(bga->fit_array,sizeof(float),bga->n,file);
+}
+
+void Brain_GA_out_sig2(FILE * file, Brain_GA *bga){
+    fwrite(bga->sigma,sizeof(float),bga->n,file);
+}
+
+
+void Brain_GA_read_fit2(FILE * file, Brain_GA *bga){  
+  fread(bga->fit_array,sizeof(float),bga->n,file);
+}
+
+void Brain_GA_read_sig2(FILE * file, Brain_GA *bga){
+  fread(bga->sigma,sizeof(float),bga->n,file);
+}
+void Brain_GA_read(Brain_GA *bga){
+  FILE *fcW,*fca,*fW,*fA,*fctable,*fsig,*ffit;
+  assert((fW=fopen("./txt/W.txt","rb"))!=NULL);
+  assert((fA=fopen("./txt/A.txt","rb"))!=NULL);
+  assert((fcW=fopen("./txt/fcW.txt","rb"))!=NULL);
+  assert((fca=fopen("./txt/fca.txt","rb"))!=NULL);
+  assert((fctable=fopen("./txt/fctable.txt","rb"))!=NULL);
+  assert((fsig=fopen("./txt/fsig.txt","rb"))!=NULL);
+  assert((ffit=fopen("./txt/ffit.txt","rb"))!=NULL);  
+
+  for(int i=0;i<bga->n;++i){
+    brain_read2(bga->pop[i],fcW,fca,fW,fA,fctable);
+  }
+    Brain_GA_read_fit2(ffit, bga);
+  Brain_GA_read_sig2(fsig,bga);
+
+  fclose(fsig);
+  fclose(ffit);
+  fclose(fW);
+  fclose(fA);
+  fclose(fca);
+  fclose(fcW);
+  fclose(fctable);
+}

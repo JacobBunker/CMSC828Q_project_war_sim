@@ -529,7 +529,7 @@ void full_neuralnet_write(neuralnet * nn){
     assert((fW=fopen("./txt/W.txt","rb"))!=NULL);
     assert((fa=fopen("./txt/a.txt","rb"))!=NULL);
     assert((ftable=fopen("./txt/table_act.txt","rb"))!=NULL);
-	
+    
     array3d_double_read(fW,nn->W);
     array3d_double_read(fa,nn->a);
     array3d_double_read(ftable,nn->table_act);
@@ -555,12 +555,12 @@ void neuralnet_read2(neuralnet * nn,FILE* fW,FILE* fA,FILE* fa,FILE * ftable){
 
 
 void full_neuralnet_write2(neuralnet * nn,FILE* fW,FILE* fa,FILE * ftable){
-    array3d_double_write(fW,nn->W);
-    array3d_double_write(fa,nn->a);
-    array3d_double_write(ftable,nn->table_act);
-  }
+  array3d_double_write(fW,nn->W);
+  array3d_double_write(fa,nn->a);
+  array3d_double_write(ftable,nn->table_act);
+}
 void full_neuralnet_read2(neuralnet * nn,FILE* fW,FILE* fa,FILE * ftable){
-    array3d_double_read(fW,nn->W);
-    array3d_double_read(fa,nn->a);
-    array3d_double_read(ftable,nn->table_act);
-  }
+  array3d_double_read(fW,nn->W);
+  array3d_double_read(fa,nn->a);
+  array3d_double_read(ftable,nn->table_act);
+}

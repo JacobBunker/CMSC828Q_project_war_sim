@@ -80,7 +80,7 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
   if(DEBUG_HARD){
     printf("graph_init\n");
   }
-  assert(Ninput + Noutput + 1<Size_cluster &&
+  assert((Noutput/ny)+1<Size_cluster && (Ninput/ny)+1<Size_cluster &&
 	 Ncluster_links+(nx-1)*ny+(ny-1)*nx<nx*nx*ny*ny  ) ; 
   // add assert number of links
   int Ncluster=nx*ny;
@@ -90,6 +90,9 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
   
   int br_size=sizeof(brain);//+cluster_size*Ncluster+sizeA+sizeW;
   brain * br=malloc(br_size);
+  br->ny=ny;
+  br->nx=nx;
+  
   br->Ntotal_links=Ntotal_links;
   br->br_size=br_size;
   br->Ncluster=Ncluster;
@@ -98,11 +101,16 @@ brain * brain_graph_init(int Ninput,int Noutput,int nx,int ny,int Size_cluster,i
   br->Size_cluster=Size_cluster;
   br->Ncluster_links=Ncluster_links;
   br->cluster=malloc(Ncluster*sizeof(neuralnet));
+
+  int Ninput_per_cluster=Ninput/ny+1;
+  int Noutput_per_cluster=Noutput/ny+1; 
+  for(int i=0;i<ny+1;++i){
+    br->cluster[i]=neuralnet_full_init(Ninput_per_cluster,0,Size_cluster);
+    br->cluster[(nx-1)*ny-1+i]=neuralnet_full_init(Noutput_per_cluster,0,Size_cluster);
+  }
+
   
-  br->cluster[0]=neuralnet_full_init(Ninput,0,Size_cluster); //input nn
-  br->cluster[Ncluster-1]=neuralnet_full_init(0,Noutput,Size_cluster); //output nn
-  
-  for(int i=1;i<Ncluster-1;++i){ 
+  for(int i=ny;i<(nx-1)*ny-1;++i){
     br->cluster[i]=neuralnet_full_init(0,0,Size_cluster);
   }
   br->A=graph_builder(nx,ny);
@@ -301,21 +309,20 @@ void brain_mutate_weights(brain *br,double sigma){
 }
 
 void brain_float_get_output(brain * br,float * output){
-  /* if(DEBUG_HARD){ */
-  /*   printf("br get out\n"); */
-  /* } */
   int inda;
-    /* inda=array3d_double_index(br->cluster[br->Ncluster-1]->a, */
-    /* 			      br->cluster[br->Ncluster-1]->Ninput+br->cluster[br->Ncluster-1]->Nhidden, */
-    /* 			      br->cluster[br->Ncluster-1]->cur,0); */
-    /* memcpy(output,&(br->cluster[br->Ncluster-1]->a[inda]),br->Noutput*sizeof(long double)); */
-  
-  for (int i=0;i<br->Noutput;++i){
-    inda=array3d_double_index(br->cluster[br->Ncluster-1]->a,
-  			      br->cluster[br->Ncluster-1]->Ninput+br->cluster[br->Ncluster-1]->Nhidden+i,
-  			      br->cluster[br->Ncluster-1]->cur,0);
-    output[i]=br->cluster[br->Ncluster-1]->a->array[inda];
-  }
+  int output_count=0;
+  int in_cluster=0;
+  while(output_count<=br->Noutput){
+    for(int i=0;i<br->ny;++i){
+      if(output_count>br->Ninput){
+	break;
+      }
+      inda=array3d_double_index(br->cluster[(br->nx-1)*br->ny-1+i]->a,in_cluster,br->cluster[(br->nx-1)*br->ny-1+i]->cur,0);
+      br->cluster[(br->nx-1)*br->ny-1+i]->a->array[inda]=output[output_count];
+      ++output_count;
+    }
+    ++in_cluster;
+  } 
 }
 
 void brain_pass_float_input(brain* br, float* input){
@@ -323,16 +330,21 @@ void brain_pass_float_input(brain* br, float* input){
   /*   printf("br pass in\n"); */
   /* } */
   int inda;
-
-  /* inda=array3d_double_index(br->cluster[0]->a,0,br->cluster[0]->cur,0); */
-  /* memcpy(&(br->cluster[0]->a->array[inda]),input,sizeof(long double)*(br->Ninput)); */
-  for (int i=0;i<br->Ninput;++i){
-    inda=array3d_double_index(br->cluster[0]->a
-  			      ,i,br->cluster[0]->cur,0);
-    br->cluster[0]->a->array[inda]=input[i];
+  int input_count=0;
+  int in_cluster=0;
+  while(input_count<=br->Ninput){
+    for(int i=0;i<br->ny;++i){
+      if(input_count>br->Ninput){
+	break;
+      }
+      inda=array3d_double_index(br->cluster[i]->a,in_cluster,br->cluster[i]->cur,0);
+      br->cluster[i]->a->array[inda]=input[input_count];
+      ++input_count;
+    }
+    ++in_cluster;
   }
-}
- 
+} 
+
 array3d_int * graph_builder(int nx, int ny){
   /* if(DEBUG_HARD){ */
   /*   printf("graph build\n"); */
@@ -489,4 +501,25 @@ void brain_read(brain * br){
   fclose(fcW);
   fclose(fcA);
   fclose(fctable);
+}
+
+
+
+void brain_write2(brain * br,  FILE *fcW, FILE *fca, FILE *fW, FILE *fA, FILE *fctable){
+  
+  for(int i=0;i<br->Ncluster;++i){
+    full_neuralnet_write2(br->cluster[i],fcW,fca,fctable); 
+  }
+  array3d_double_write(fW,br->W);
+  array3d_int_write(fA,br->A);
+}
+
+
+void brain_read2(brain * br,  FILE *fcW,FILE *fca,FILE *fW,FILE *fA,FILE *fctable){
+  
+  for(int i=0;i<br->Ncluster;++i){
+    full_neuralnet_read2(br->cluster[i],fcW,fca,fctable);
+  }
+  array3d_double_read(fW,br->W);
+  array3d_int_read(fA,br->A);
 }

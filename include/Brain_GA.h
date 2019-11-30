@@ -34,4 +34,11 @@ void Brain_GA_mutate_table(Brain_GA *bga,float pm);
 void Brain_GA_out_fit(FILE * file, Brain_GA *bga);
 void Brain_GA_out_sig(FILE * file, Brain_GA *bga);
 
+void Brain_GA_write(Brain_GA *bga);
+
+void Brain_GA_out_fit2(FILE * file, Brain_GA *bga);
+void Brain_GA_out_sig2(FILE * file, Brain_GA *bga);
+void Brain_GA_read_fit2(FILE * file, Brain_GA *bga);
+void Brain_GA_read_sig2(FILE * file, Brain_GA *bga);
+void Brain_GA_read(Brain_GA *bga);
 #endif

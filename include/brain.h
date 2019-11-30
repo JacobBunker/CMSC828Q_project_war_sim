@@ -5,7 +5,7 @@
 #include "arrays.h"
 
 typedef struct brain{
-  int Ninput,Noutput,Ncluster, Size_cluster,Ncluster_links,Ntotal_links,br_size;
+  int Ninput,Noutput,Ncluster,nx,ny, Size_cluster,Ncluster_links,Ntotal_links,br_size;
   neuralnet **cluster;
   array3d_int *A;
   array3d_double *W;
@@ -40,5 +40,6 @@ void brain_mutate_table(brain * br, double sigma);
 
 void brain_write(brain * br);
 void brain_read(brain *br );
-
+void brain_write2(brain * br,  FILE *fcW, FILE *fca, FILE *fW, FILE *fA, FILE *fctable);
+void brain_read2(brain * br,  FILE *fcW,FILE *fca,FILE *fW,FILE *fA,FILE *fctable);
 #endif
