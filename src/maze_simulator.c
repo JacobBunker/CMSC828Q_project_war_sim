@@ -28,7 +28,7 @@
 
 #define NUM_PLAYERS 16
 #define PLAYERS_PER_TEAM 8
-#define N_INPUT		10
+#define N_INPUT		11
 #define N_OUTPUT	4
 #define AGENT_SIZE 0.5
 #define CHANCE_MUTATION 0.8
@@ -51,11 +51,11 @@ char buffer[64];
 cpVect spawns[NUM_PLAYERS/PLAYERS_PER_TEAM];
 float team_colors[2][3];
 
-int popsize=4*NUM_PLAYERS,
+int popsize=16*NUM_PLAYERS,
   nx=10,
   ny=5,
   Size_cluster=30,
-  Ncluster_links=100,
+  Ncluster_links=150,
   Ngame=4,
   Learning_time=20; 
 
@@ -74,8 +74,8 @@ void InitSim(SimulationState *sim) {
 	sim->look_number = 3;  //number of hitscan checks within the arc
 	sim->look_spread = 0.523599 / 2.0; //size in radians of the arc which the agents look within
 
-	spawns[0] = cpv(10.0, 10.0);
-	spawns[1] = cpv(40.0, 40.0);
+	spawns[1] = cpv(10.0, 10.0);
+	spawns[0] = cpv(40.0, 40.0);
 	team_colors[0][0] = 0.0;
 	team_colors[0][1] = 1.0;
 	team_colors[0][2] = 0.5;
@@ -535,9 +535,15 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	FILE * ffit,* fsig;  
+	FILE * ffit,* fsig, *full_ffit, *full_fsig, *cluster_ffit, *cluster_fsig;  
 	ffit=fopen("fit.txt","w");
 	fsig=fopen("sig.txt","w");
+
+	full_ffit=fopen("full_fit.txt","w");
+	full_fsig=fopen("full_sig.txt","w");
+
+	cluster_ffit=fopen("cluster_fit.txt","w");
+	cluster_fsig=fopen("cluster_sig.txt","w");
 
 
 	//INITIALIZING THE SIMULATION HERE! 
@@ -720,14 +726,16 @@ int main(int argc, char** argv) {
 				tournament_selection(((GA *)(animal_kingdom[ii].ga)));
 				mutate_sigma(((GA *)(animal_kingdom[ii].ga)));
 				GA_mutate_weights(((GA *)(animal_kingdom[ii].ga)),CHANCE_MUTATION);
+				out_fit(full_ffit,((GA *)(animal_kingdom[ii].ga)));  
+				out_sig(full_fsig,((GA *)(animal_kingdom[ii].ga)));
 			} else {
 				memcpy(((Brain_GA *)(animal_kingdom[ii].ga))->fit_array,((Brain_GA *)(animal_kingdom[ii].ga))->copy_fit,((Brain_GA *)(animal_kingdom[ii].ga))->n*sizeof(float));
 				Brain_GA_tournament_selection(((Brain_GA *)(animal_kingdom[ii].ga)));
 				Brain_GA_mutate_sigma(((Brain_GA *)(animal_kingdom[ii].ga)));
 				Brain_GA_mutate_weights(((Brain_GA *)(animal_kingdom[ii].ga)),CHANCE_MUTATION);
 				Brain_GA_mutate_table(((Brain_GA *)(animal_kingdom[ii].ga)),CHANCE_MUTATION);
-				Brain_GA_out_fit(ffit,((Brain_GA *)(animal_kingdom[ii].ga)));  
-				Brain_GA_out_sig(fsig,((Brain_GA *)(animal_kingdom[ii].ga)));
+				Brain_GA_out_fit(cluster_ffit,((Brain_GA *)(animal_kingdom[ii].ga)));  
+				Brain_GA_out_sig(cluster_fsig,((Brain_GA *)(animal_kingdom[ii].ga)));
 			}
 		}
 		end = clock();
@@ -812,6 +820,10 @@ int main(int argc, char** argv) {
 	for(int t=0;t<MAX_THREADS;++t) {
 		FreeSim(&sims[t]);
 	}
+
+	fclose(ffit);
+	fclose(full_ffit);
+	fclose(cluster_ffit);
 
 	printf("sims freed");
 
